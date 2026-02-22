@@ -1,43 +1,1058 @@
-async function processAudio() {
-    const timeoutProtection = setTimeout(() => {
-        console.error('⏰ Timeout: The process has exceeded the allowed time.');
-        throw new Error('Process Timed Out');
-    }, 5 * 60 * 1000); // 5 minutes
-
-    try {
-        console.log('🎧 Starting Audio Processing...');
-
-        // Your audio processing logic here
-
-        // Simulating response validation
-        const response = await fetchAudio();
-        if (!response.ok) {
-            if (response.status === 503) {
-                console.error('🚧 Error 503: Service Unavailable. Please try again later.');
-                throw new Error('Service Unavailable');
-            }
-            throw new Error('Network Error: ' + response.statusText);
-        }
-
-        const audioData = await response.json();
-        if (!isValidAudioFormat(audioData)) {
-            console.error('🛑 Invalid Format: The audio data is not in the expected format.');
-            throw new Error('Invalid Audio Format');
-        }
-
-        console.log('✅ Audio processed successfully!');
-    } catch (error) {
-        if (error.message.includes('Network Error')) {
-            console.error('🌐 Network Connection Issue: Please check your connection.');
-        } else if (error.message === 'Process Timed Out') {
-            console.error('🚨 Error: Process timed out after 5 minutes.');
-        } else if (error.message === 'Service Unavailable') {
-            console.error('🔒 Authentication Error: Please check your credentials and try again.');
-        } else {
-            console.error(`⚠️ Unexpected Error: ${error.message}`);
-        }
-    } finally {
-        clearTimeout(timeoutProtection);
-        console.log('🔚 Process finished.');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>STEMIX — AI Vocal Remover</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --neon: #00ff41;
+      --neon-dim: #00cc33;
+      --neon-glow: 0 0 8px #00ff41, 0 0 20px #00ff4188, 0 0 40px #00ff4144;
+      --neon-glow-strong: 0 0 10px #00ff41, 0 0 30px #00ff41aa, 0 0 60px #00ff4166, 0 0 100px #00ff4133;
+      --bg: #000; --bg3: #0a120a;
+      --text: #b0ffb0; --text-dim: #4a7a4a;
     }
-}
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:var(--bg); color:var(--text); font-family:'Share Tech Mono',monospace; min-height:100vh; overflow-x:hidden; }
+    body::before { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,65,0.015) 2px,rgba(0,255,65,0.015) 4px); pointer-events:none; z-index:9999; }
+    body::after { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(0,255,65,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,65,0.04) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; }
+
+    /* ── OVERLAY (login + ad + host password) ── */
+    .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:1000; display:flex; align-items:center; justify-content:center; }
+    .overlay.hidden { display:none; }
+    .modal { background:var(--bg3); border:1px solid var(--neon-dim); box-shadow:var(--neon-glow-strong); border-radius:6px; padding:36px 32px; width:100%; max-width:420px; text-align:center; position:relative; }
+    .modal-title { font-family:'Orbitron',monospace; font-size:1.1rem; color:var(--neon); text-shadow:var(--neon-glow); letter-spacing:0.2em; margin-bottom:8px; }
+    .modal-sub { font-size:0.65rem; color:var(--text-dim); letter-spacing:0.1em; margin-bottom:24px; line-height:1.6; }
+    .neon-input { width:100%; background:rgba(0,255,65,0.04); border:1px solid rgba(0,255,65,0.25); color:var(--neon); font-family:'Share Tech Mono',monospace; font-size:0.85rem; padding:12px 16px; border-radius:3px; outline:none; letter-spacing:0.1em; margin-bottom:14px; text-align:center; }
+    .neon-input::placeholder { color:var(--text-dim); }
+    .neon-input:focus { border-color:var(--neon); box-shadow:var(--neon-glow); }
+    .modal-btn { width:100%; background:transparent; border:2px solid var(--neon); box-shadow:var(--neon-glow-strong); color:var(--neon); font-family:'Orbitron',monospace; font-size:0.7rem; font-weight:700; letter-spacing:0.2em; padding:14px; cursor:pointer; border-radius:3px; text-transform:uppercase; transition:all 0.2s; }
+    .modal-btn:hover { background:rgba(0,255,65,0.08); }
+    .modal-err { font-size:0.6rem; color:rgba(255,100,100,0.85); margin-top:10px; min-height:18px; }
+
+    /* ── AD OVERLAY ── */
+    .ad-overlay { position:fixed; inset:0; background:#000; z-index:2000; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+    .ad-overlay.hidden { display:none; }
+    .ad-media-wrap { position:relative; width:100%; max-width:860px; }
+    .ad-media-wrap video, .ad-media-wrap audio { width:100%; border:1px solid rgba(0,255,65,0.2); border-radius:4px; }
+    .ad-label { font-family:'Orbitron',monospace; font-size:0.55rem; color:rgba(255,255,255,0.35); letter-spacing:0.2em; margin-bottom:12px; }
+    .ad-timer { font-family:'Orbitron',monospace; font-size:0.8rem; color:var(--neon); text-shadow:var(--neon-glow); margin-top:14px; letter-spacing:0.15em; }
+    .ad-skip-bar { position:fixed; bottom:20px; right:24px; z-index:2100; }
+    .ad-skip-btn { background:rgba(0,0,0,0.7); border:1px solid rgba(0,255,65,0.3); color:var(--text-dim); font-family:'Share Tech Mono',monospace; font-size:0.52rem; letter-spacing:0.1em; padding:7px 14px; border-radius:2px; cursor:pointer; transition:all 0.2s; }
+    .ad-skip-btn:hover { border-color:var(--neon); color:var(--neon); }
+
+    /* ── HOST SKIP PASSWORD MODAL ── */
+    .skip-modal { position:fixed; bottom:64px; right:24px; z-index:2200; background:var(--bg3); border:1px solid var(--neon-dim); box-shadow:var(--neon-glow); border-radius:4px; padding:16px; width:240px; display:none; }
+    .skip-modal.visible { display:block; }
+    .skip-modal input { width:100%; background:rgba(0,255,65,0.04); border:1px solid rgba(0,255,65,0.25); color:var(--neon); font-family:'Share Tech Mono',monospace; font-size:0.75rem; padding:8px 10px; border-radius:2px; outline:none; letter-spacing:0.1em; margin-bottom:8px; text-align:center; }
+    .skip-modal input:focus { border-color:var(--neon); box-shadow:0 0 8px var(--neon); }
+    .skip-modal button { width:100%; background:transparent; border:1px solid var(--neon-dim); color:var(--neon); font-family:'Orbitron',monospace; font-size:0.52rem; letter-spacing:0.15em; padding:8px; cursor:pointer; border-radius:2px; text-transform:uppercase; }
+    .skip-modal button:hover { background:rgba(0,255,65,0.08); }
+    .skip-err { font-size:0.56rem; color:rgba(255,100,100,0.8); margin-top:6px; min-height:14px; }
+
+    /* ── MAIN LAYOUT ── */
+    .container { position:relative; z-index:1; max-width:940px; margin:0 auto; padding:34px 20px 100px; }
+    header { text-align:center; margin-bottom:32px; position:relative; }
+    .logo { font-family:'Orbitron',monospace; font-size:clamp(2.2rem,7vw,4.5rem); font-weight:900; color:var(--neon); text-shadow:var(--neon-glow-strong); letter-spacing:0.2em; animation:flicker 8s infinite; }
+    .logo span { color:#fff; text-shadow:0 0 10px #fff,0 0 30px #00ff4188; }
+    .tagline { font-size:0.7rem; color:var(--text-dim); letter-spacing:0.4em; margin-top:6px; text-transform:uppercase; }
+    @keyframes flicker { 0%,95%,100%{opacity:1}96%{opacity:.85}97%{opacity:1}98%{opacity:.7}99%{opacity:1} }
+
+    /* ── TOP BAR ── */
+    .top-bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px; flex-wrap:wrap; }
+    .user-pill { display:flex; align-items:center; gap:8px; background:rgba(0,255,65,0.05); border:1px solid rgba(0,255,65,0.2); border-radius:20px; padding:6px 14px; font-size:0.6rem; color:var(--text-dim); }
+    .user-pill .uname { color:var(--neon); text-shadow:0 0 6px var(--neon); font-family:'Orbitron',monospace; font-size:0.58rem; }
+    .logout-btn { background:transparent; border:1px solid rgba(0,255,65,0.15); color:var(--text-dim); font-family:'Share Tech Mono',monospace; font-size:0.54rem; padding:4px 10px; cursor:pointer; border-radius:2px; transition:all 0.2s; }
+    .logout-btn:hover { border-color:var(--neon-dim); color:var(--neon); }
+    .ai-badge { display:inline-flex; align-items:center; gap:7px; background:rgba(0,255,65,0.05); border:1px solid rgba(0,255,65,0.18); border-radius:20px; padding:5px 14px; font-size:0.55rem; color:var(--text-dim); }
+    .ai-dot { width:7px; height:7px; border-radius:50%; background:var(--neon); box-shadow:var(--neon-glow); animation:pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(0.8)} }
+
+    /* ── HOST PANEL ── */
+    .host-panel { background:linear-gradient(135deg,rgba(255,107,0,0.06),rgba(0,0,0,0)); border:1px solid rgba(255,107,0,0.3); border-radius:4px; padding:18px 20px; margin-bottom:22px; display:none; }
+    .host-panel.visible { display:block; }
+    .host-title { font-family:'Orbitron',monospace; font-size:0.65rem; letter-spacing:0.2em; color:#ff6b00; text-shadow:0 0 10px #ff6b00; margin-bottom:14px; }
+    .host-row { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .host-label { font-size:0.62rem; color:rgba(255,180,100,0.7); }
+
+    /* Toggle switch */
+    .toggle-wrap { display:flex; align-items:center; gap:10px; }
+    .toggle { position:relative; width:44px; height:24px; cursor:pointer; }
+    .toggle input { opacity:0; width:0; height:0; }
+    .toggle-slider { position:absolute; inset:0; background:rgba(255,107,0,0.15); border:1px solid rgba(255,107,0,0.3); border-radius:24px; transition:0.3s; }
+    .toggle-slider:before { content:''; position:absolute; width:18px; height:18px; left:2px; top:2px; background:rgba(255,107,0,0.5); border-radius:50%; transition:0.3s; }
+    .toggle input:checked + .toggle-slider { background:rgba(255,107,0,0.25); border-color:#ff6b00; }
+    .toggle input:checked + .toggle-slider:before { transform:translateX(20px); background:#ff6b00; box-shadow:0 0 8px #ff6b00; }
+    .toggle-label { font-family:'Orbitron',monospace; font-size:0.56rem; letter-spacing:0.1em; color:rgba(255,180,100,0.7); }
+
+    .ad-upload-area { margin-top:14px; border:1px dashed rgba(255,107,0,0.3); border-radius:3px; padding:14px; text-align:center; cursor:pointer; transition:all 0.2s; }
+    .ad-upload-area:hover { background:rgba(255,107,0,0.04); border-color:rgba(255,107,0,0.6); }
+    .ad-upload-area p { font-size:0.6rem; color:rgba(255,180,100,0.6); }
+    .ad-current { font-size:0.58rem; color:rgba(255,180,100,0.5); margin-top:8px; }
+    #adFileInput { display:none; }
+
+    .host-exit-btn { background:transparent; border:1px solid rgba(255,107,0,0.3); color:rgba(255,107,0,0.6); font-family:'Share Tech Mono',monospace; font-size:0.54rem; padding:5px 12px; cursor:pointer; border-radius:2px; transition:all 0.2s; margin-left:auto; display:block; margin-top:12px; }
+    .host-exit-btn:hover { border-color:#ff6b00; color:#ff6b00; }
+
+    /* ── TABS ── */
+    .tabs { display:flex; gap:0; margin-bottom:26px; border-bottom:1px solid rgba(0,255,65,0.15); }
+    .tab-btn { background:transparent; border:none; color:var(--text-dim); font-family:'Orbitron',monospace; font-size:0.58rem; letter-spacing:0.2em; padding:11px 22px; cursor:pointer; text-transform:uppercase; border-bottom:2px solid transparent; transition:all 0.2s; }
+    .tab-btn:hover { color:var(--text); }
+    .tab-btn.active { color:var(--neon); text-shadow:var(--neon-glow); border-bottom-color:var(--neon); }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+
+    /* ── UPLOAD ── */
+    .upload-zone { border:1px solid var(--neon-dim); box-shadow:var(--neon-glow),inset 0 0 30px rgba(0,255,65,0.03); border-radius:4px; padding:50px 40px; text-align:center; cursor:pointer; transition:all 0.3s; margin-bottom:22px; }
+    .upload-zone:hover,.upload-zone.drag-over { background:rgba(0,255,65,0.03); box-shadow:var(--neon-glow-strong),inset 0 0 60px rgba(0,255,65,0.05); }
+    .upload-icon { font-size:2.6rem; margin-bottom:12px; display:block; filter:drop-shadow(0 0 8px var(--neon)); }
+    .upload-zone h2 { font-family:'Orbitron',monospace; font-size:0.92rem; color:var(--neon); text-shadow:var(--neon-glow); margin-bottom:8px; letter-spacing:0.15em; }
+    .upload-zone p { font-size:0.68rem; color:var(--text-dim); letter-spacing:0.08em; }
+    #fileInput { display:none; }
+
+    /* ── FILE INFO ── */
+    .file-info { display:none; background:var(--bg3); border:1px solid rgba(0,255,65,0.2); border-radius:3px; padding:12px 17px; margin-bottom:16px; font-size:0.68rem; color:var(--text-dim); align-items:center; gap:12px; }
+    .file-info.visible { display:flex; }
+    .file-badge { background:var(--neon); color:#000; font-family:'Orbitron',monospace; font-size:0.46rem; font-weight:700; padding:3px 7px; border-radius:2px; }
+    .file-name { flex:1; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+    /* ── MODE ── */
+    .section-label { font-family:'Orbitron',monospace; font-size:0.56rem; letter-spacing:0.28em; color:var(--text-dim); text-transform:uppercase; margin-bottom:10px; }
+    .mode-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:9px; margin-bottom:20px; }
+    .mode-btn { background:transparent; border:1px solid var(--neon-dim); box-shadow:var(--neon-glow); color:var(--text); font-family:'Orbitron',monospace; font-size:0.55rem; letter-spacing:0.1em; padding:12px 7px; cursor:pointer; border-radius:3px; transition:all 0.2s; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; gap:5px; }
+    .mode-btn .mode-icon { font-size:1.2rem; }
+    .mode-btn:hover,.mode-btn.active { background:rgba(0,255,65,0.08); border-color:var(--neon); color:var(--neon); box-shadow:var(--neon-glow-strong); text-shadow:0 0 8px var(--neon); }
+
+    /* ── PROCESS BTN ── */
+    .process-btn { width:100%; background:transparent; border:2px solid var(--neon); box-shadow:var(--neon-glow-strong); color:var(--neon); font-family:'Orbitron',monospace; font-size:0.82rem; font-weight:700; letter-spacing:0.3em; padding:18px; cursor:pointer; border-radius:3px; text-transform:uppercase; transition:all 0.2s; text-shadow:var(--neon-glow); margin-bottom:24px; position:relative; overflow:hidden; }
+    .process-btn::after { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(0,255,65,0.12),transparent); transition:left 0.5s; }
+    .process-btn:hover::after { left:100%; }
+    .process-btn:hover { background:rgba(0,255,65,0.08); }
+    .process-btn:disabled { opacity:0.3; cursor:not-allowed; box-shadow:none; }
+
+    /* ── PROGRESS ── */
+    .progress-section { display:none; margin-bottom:24px; }
+    .progress-section.visible { display:block; }
+    .progress-label { font-size:0.58rem; letter-spacing:0.25em; color:var(--text-dim); margin-bottom:8px; display:flex; justify-content:space-between; }
+    .progress-bar-wrap { background:rgba(0,255,65,0.05); border:1px solid rgba(0,255,65,0.2); border-radius:2px; height:9px; overflow:hidden; }
+    .progress-bar { height:100%; background:linear-gradient(90deg,var(--neon-dim),var(--neon)); box-shadow:0 0 10px var(--neon); width:0%; transition:width 0.6s ease; border-radius:2px; }
+    .status-text { font-size:0.64rem; color:var(--neon); text-shadow:0 0 8px var(--neon); margin-top:9px; letter-spacing:0.1em; }
+    .status-text.blink { animation:blink 1s infinite; }
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:.35} }
+
+    .error-box { display:none; border:1px solid rgba(255,60,60,0.4); background:rgba(255,60,60,0.05); border-radius:3px; padding:13px 17px; font-size:0.62rem; color:rgba(255,130,130,0.9); line-height:1.7; margin-bottom:14px; }
+    .error-box.visible { display:block; }
+    .save-indicator { display:none; background:rgba(0,255,65,0.07); border:1px solid rgba(0,255,65,0.2); border-radius:3px; padding:9px 15px; font-size:0.6rem; color:var(--neon); letter-spacing:0.08em; margin-bottom:13px; text-align:center; }
+    .save-indicator.visible { display:block; }
+
+    /* ── RESULTS ── */
+    .results { display:none; }
+    .results.visible { display:block; }
+    .results-header { font-family:'Orbitron',monospace; font-size:0.58rem; letter-spacing:0.25em; color:var(--text-dim); text-transform:uppercase; margin-bottom:15px; padding-bottom:8px; border-bottom:1px solid rgba(0,255,65,0.14); }
+
+    /* ── MIXER ── */
+    .mixer-panel { background:var(--bg3); border:1px solid rgba(0,255,65,0.2); border-radius:4px; padding:20px; margin-bottom:13px; }
+    .mixer-title { font-family:'Orbitron',monospace; font-size:0.62rem; letter-spacing:0.18em; color:var(--neon); text-shadow:0 0 6px var(--neon); margin-bottom:15px; }
+    .track-row { display:grid; grid-template-columns:106px 1fr 83px; align-items:center; gap:12px; margin-bottom:14px; }
+    .track-label { font-family:'Orbitron',monospace; font-size:0.51rem; letter-spacing:0.08em; color:var(--neon); display:flex; flex-direction:column; gap:3px; }
+    .track-sub { color:var(--text-dim); font-size:0.47rem; font-family:'Share Tech Mono',monospace; }
+    .waveform-wrap { position:relative; height:60px; background:rgba(0,255,65,0.03); border:1px solid rgba(0,255,65,0.1); border-radius:2px; overflow:hidden; cursor:pointer; }
+    canvas.waveform { width:100%; height:100%; display:block; }
+    .playhead { position:absolute; top:0; bottom:0; width:2px; background:rgba(255,255,255,0.9); box-shadow:0 0 6px #fff; left:0; pointer-events:none; }
+    .vol-col { display:flex; flex-direction:column; align-items:center; gap:4px; }
+    .vol-label { font-size:0.5rem; color:var(--text-dim); }
+    .vol-val { font-family:'Orbitron',monospace; font-size:0.55rem; color:var(--neon); text-shadow:0 0 6px var(--neon); }
+    input.vol-slider { -webkit-appearance:none; writing-mode:vertical-lr; direction:rtl; width:6px; height:66px; padding:0; background:rgba(0,255,65,0.15); border-radius:3px; outline:none; margin:0 auto; display:block; cursor:pointer; }
+    input.vol-slider::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--neon); box-shadow:var(--neon-glow); cursor:pointer; }
+    input.vol-slider::-moz-range-thumb { width:14px; height:14px; border-radius:50%; background:var(--neon); box-shadow:var(--neon-glow); cursor:pointer; border:none; }
+    .mixer-controls { display:flex; align-items:center; gap:13px; margin-top:15px; padding-top:14px; border-top:1px solid rgba(0,255,65,0.1); }
+    .big-play-btn { width:54px; height:54px; border-radius:50%; border:2px solid var(--neon); box-shadow:var(--neon-glow-strong); background:transparent; color:var(--neon); font-size:1.3rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0; }
+    .big-play-btn:hover { background:rgba(0,255,65,0.1); }
+    .big-play-btn.playing { border-color:#fff; box-shadow:0 0 10px #fff,0 0 30px rgba(255,255,255,0.25); color:#fff; }
+    .scrubber-wrap { flex:1; display:flex; flex-direction:column; gap:5px; }
+    .scrubber { -webkit-appearance:none; width:100%; height:4px; background:rgba(0,255,65,0.15); border-radius:2px; outline:none; cursor:pointer; }
+    .scrubber::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--neon); box-shadow:var(--neon-glow); cursor:pointer; }
+    .scrubber::-moz-range-thumb { width:14px; height:14px; border-radius:50%; background:var(--neon); box-shadow:var(--neon-glow); cursor:pointer; border:none; }
+    .time-row { display:flex; justify-content:space-between; font-size:0.52rem; color:var(--text-dim); }
+    .mixer-time { font-family:'Orbitron',monospace; font-size:0.78rem; color:var(--neon); text-shadow:var(--neon-glow); min-width:48px; text-align:right; }
+    .export-section { margin-top:17px; padding-top:13px; border-top:1px solid rgba(0,255,65,0.1); }
+    .export-title { font-family:'Orbitron',monospace; font-size:0.56rem; letter-spacing:0.18em; color:var(--text-dim); margin-bottom:10px; }
+    .export-btns { display:flex; gap:9px; flex-wrap:wrap; }
+    .export-btn { flex:1; min-width:125px; background:transparent; border:1px solid var(--neon-dim); box-shadow:var(--neon-glow); color:var(--neon); font-family:'Orbitron',monospace; font-size:0.5rem; letter-spacing:0.1em; padding:11px 8px; cursor:pointer; border-radius:3px; text-transform:uppercase; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:5px; transition:all 0.2s; }
+    .export-btn:hover { background:rgba(0,255,65,0.08); box-shadow:var(--neon-glow-strong); }
+    .export-btn.mixed { border-color:var(--neon); border-width:2px; box-shadow:var(--neon-glow-strong); }
+    .stem-card { background:var(--bg3); border:1px solid rgba(0,255,65,0.14); border-radius:3px; padding:13px 16px; margin-bottom:9px; }
+    .stem-top { display:flex; align-items:center; gap:11px; }
+    .stem-icon { font-size:1.3rem; filter:drop-shadow(0 0 4px var(--neon)); }
+    .stem-info { flex:1; }
+    .stem-name { font-family:'Orbitron',monospace; font-size:0.6rem; color:var(--neon); text-shadow:0 0 6px var(--neon); letter-spacing:0.1em; margin-bottom:2px; }
+    .stem-desc { font-size:0.57rem; color:var(--text-dim); }
+    audio { width:100%; height:30px; margin-top:8px; filter:invert(1) hue-rotate(90deg) brightness(0.8); }
+    .dl-btn { background:transparent; border:1px solid var(--neon-dim); box-shadow:var(--neon-glow); color:var(--neon); font-family:'Orbitron',monospace; font-size:0.47rem; letter-spacing:0.1em; padding:6px 11px; cursor:pointer; border-radius:2px; text-transform:uppercase; text-decoration:none; transition:all 0.2s; white-space:nowrap; }
+    .dl-btn:hover { background:rgba(0,255,65,0.08); box-shadow:var(--neon-glow-strong); }
+    .reset-btn { background:transparent; border:1px solid rgba(0,255,65,0.2); color:var(--text-dim); font-family:'Share Tech Mono',monospace; font-size:0.6rem; letter-spacing:0.18em; padding:9px 18px; cursor:pointer; border-radius:2px; text-transform:uppercase; margin-top:16px; transition:all 0.2s; }
+    .reset-btn:hover { border-color:var(--neon-dim); color:var(--neon); box-shadow:var(--neon-glow); }
+
+    /* ── HISTORY ── */
+    .history-empty { text-align:center; padding:55px 20px; color:var(--text-dim); font-size:0.68rem; letter-spacing:0.08em; line-height:2; }
+    .history-empty .big-icon { font-size:2.8rem; display:block; margin-bottom:14px; opacity:0.35; }
+    .history-filter { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+    .filter-label { font-size:0.56rem; color:var(--text-dim); letter-spacing:0.1em; }
+    .filter-input { background:rgba(0,255,65,0.04); border:1px solid rgba(0,255,65,0.2); color:var(--text); font-family:'Share Tech Mono',monospace; font-size:0.62rem; padding:7px 12px; border-radius:3px; outline:none; width:200px; }
+    .filter-input:focus { border-color:var(--neon); box-shadow:var(--neon-glow); }
+    .history-card { background:var(--bg3); border:1px solid rgba(0,255,65,0.12); border-radius:4px; padding:15px 17px; margin-bottom:11px; transition:border-color 0.2s; }
+    .history-card:hover { border-color:rgba(0,255,65,0.3); }
+    .hcard-top { display:flex; align-items:center; gap:11px; margin-bottom:10px; }
+    .hcard-icon { font-size:1.5rem; filter:drop-shadow(0 0 4px var(--neon)); }
+    .hcard-info { flex:1; min-width:0; }
+    .hcard-name { font-family:'Orbitron',monospace; font-size:0.6rem; color:var(--neon); text-shadow:0 0 6px var(--neon); letter-spacing:0.08em; margin-bottom:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .hcard-meta { font-size:0.54rem; color:var(--text-dim); }
+    .hcard-date { font-size:0.52rem; color:var(--text-dim); white-space:nowrap; }
+    .hcard-stems { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:8px; }
+    .hcard-stem-btn { background:transparent; border:1px solid rgba(0,255,65,0.18); color:var(--text-dim); font-family:'Orbitron',monospace; font-size:0.44rem; letter-spacing:0.08em; padding:5px 9px; cursor:pointer; border-radius:2px; text-transform:uppercase; text-decoration:none; transition:all 0.2s; display:inline-flex; align-items:center; gap:4px; }
+    .hcard-stem-btn:hover { border-color:var(--neon); color:var(--neon); box-shadow:var(--neon-glow); }
+    .hcard-actions { display:flex; justify-content:flex-end; gap:8px; }
+    .hcard-delete { background:transparent; border:1px solid rgba(255,60,60,0.2); color:rgba(255,100,100,0.45); font-size:0.48rem; padding:5px 10px; cursor:pointer; border-radius:2px; font-family:'Orbitron',monospace; letter-spacing:0.08em; transition:all 0.2s; }
+    .hcard-delete:hover { border-color:rgba(255,60,60,0.6); color:rgba(255,100,100,0.9); }
+    .host-only-badge { font-size:0.44rem; background:rgba(255,107,0,0.1); border:1px solid rgba(255,107,0,0.3); color:#ff6b00; padding:3px 8px; border-radius:2px; font-family:'Orbitron',monospace; letter-spacing:0.1em; }
+    .history-loading { text-align:center; padding:38px; color:var(--text-dim); font-size:0.64rem; letter-spacing:0.1em; }
+
+    .corner-decor { position:fixed; width:55px; height:55px; opacity:0.4; z-index:2; }
+    .corner-decor.tl { top:12px; left:12px; border-top:1px solid var(--neon); border-left:1px solid var(--neon); }
+    .corner-decor.tr { top:12px; right:12px; border-top:1px solid var(--neon); border-right:1px solid var(--neon); }
+    .corner-decor.bl { bottom:12px; left:12px; border-bottom:1px solid var(--neon); border-left:1px solid var(--neon); }
+    .corner-decor.br { bottom:12px; right:12px; border-bottom:1px solid var(--neon); border-right:1px solid var(--neon); }
+
+    @media(max-width:600px) {
+      .track-row { grid-template-columns:74px 1fr 64px; }
+      .export-btns { flex-direction:column; }
+      .tab-btn { padding:9px 13px; font-size:0.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="corner-decor tl"></div><div class="corner-decor tr"></div>
+  <div class="corner-decor bl"></div><div class="corner-decor br"></div>
+
+  <!-- ══ LOGIN OVERLAY ══════════════════════════════ -->
+  <div class="overlay" id="loginOverlay">
+    <div class="modal">
+      <div class="modal-title">STEM<span style="color:#fff">IX</span></div>
+      <div class="modal-sub">Enter your username to get started.<br/>Your history is saved privately under your name.</div>
+      <input class="neon-input" id="loginInput" type="text" placeholder="Your username" maxlength="30"
+        onkeydown="if(event.key==='Enter') doLogin()"/>
+      <button class="modal-btn" onclick="doLogin()">Enter STEMIX</button>
+      <div class="modal-err" id="loginErr"></div>
+    </div>
+  </div>
+
+  <!-- ══ AD OVERLAY ════════════════════════════════ -->
+  <div class="ad-overlay hidden" id="adOverlay">
+    <div class="ad-label">ADVERTISEMENT — Please watch before continuing</div>
+    <div class="ad-media-wrap" id="adMediaWrap"></div>
+    <div class="ad-timer" id="adTimer">Please wait...</div>
+    <!-- tiny skip button bottom right — only works with host password -->
+    <div class="ad-skip-bar">
+      <button class="ad-skip-btn" onclick="toggleSkipModal()">⬡ Skip (Host only)</button>
+    </div>
+  </div>
+
+  <!-- ══ HOST SKIP PASSWORD ════════════════════════ -->
+  <div class="skip-modal" id="skipModal">
+    <input type="password" id="skipPassInput" placeholder="Host password" maxlength="20"
+      onkeydown="if(event.key==='Enter') trySkip()"/>
+    <button onclick="trySkip()">Skip Ad</button>
+    <div class="skip-err" id="skipErr"></div>
+  </div>
+
+  <!-- ══ HOST UNLOCK MODAL ═════════════════════════ -->
+  <div class="overlay hidden" id="hostOverlay">
+    <div class="modal">
+      <div class="modal-title" style="color:#ff6b00;text-shadow:0 0 12px #ff6b00;">HOST MODE</div>
+      <div class="modal-sub">Enter the host password to unlock admin controls.</div>
+      <input class="neon-input" id="hostPassInput" type="password" placeholder="Host password" maxlength="20"
+        style="border-color:rgba(255,107,0,0.4);color:#ff6b00;"
+        onkeydown="if(event.key==='Enter') tryHostUnlock()"/>
+      <button class="modal-btn" style="border-color:#ff6b00;color:#ff6b00;text-shadow:0 0 8px #ff6b00;"
+        onclick="tryHostUnlock()">Unlock Host Mode</button>
+      <div class="modal-err" id="hostErr"></div>
+      <button style="background:transparent;border:none;color:var(--text-dim);font-size:0.58rem;margin-top:14px;cursor:pointer;" onclick="closeHostOverlay()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ══ MAIN APP ═══════════════════════════════════ -->
+  <div class="container" id="mainApp" style="display:none;">
+    <header>
+      <div class="logo">STEM<span>IX</span></div>
+      <div class="tagline">AI Vocal Remover &amp; Stem Splitter</div>
+    </header>
+
+    <!-- Top bar -->
+    <div class="top-bar">
+      <div class="user-pill">
+        👤 Logged in as <span class="uname" id="displayName"></span>
+        <button class="logout-btn" onclick="doLogout()">Log out</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="ai-badge"><div class="ai-dot"></div>AI ENGINE ONLINE</div>
+        <button id="hostModeBtn" style="background:transparent;border:1px solid rgba(255,107,0,0.3);color:rgba(255,107,0,0.6);font-family:'Orbitron',monospace;font-size:0.5rem;letter-spacing:0.12em;padding:6px 12px;cursor:pointer;border-radius:2px;text-transform:uppercase;transition:all 0.2s;"
+          onmouseover="this.style.borderColor='#ff6b00';this.style.color='#ff6b00';"
+          onmouseout="this.style.borderColor='rgba(255,107,0,0.3)';this.style.color='rgba(255,107,0,0.6)';"
+          onclick="openHostOverlay()">⬡ Host Mode</button>
+      </div>
+    </div>
+
+    <!-- Host panel -->
+    <div class="host-panel" id="hostPanel">
+      <div class="host-title">🔥 HOST CONTROL PANEL</div>
+      <div class="host-row">
+        <span class="host-label">Ad System</span>
+        <div class="toggle-wrap">
+          <label class="toggle">
+            <input type="checkbox" id="adToggle" onchange="saveAdSettings()"/>
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" id="adToggleLabel">OFF</span>
+        </div>
+      </div>
+      <div class="ad-upload-area" onclick="document.getElementById('adFileInput').click()">
+        <p>📁 Click to upload ad video or audio file</p>
+        <div class="ad-current" id="adCurrentFile">No ad uploaded yet</div>
+      </div>
+      <input type="file" id="adFileInput" accept="video/*,audio/*" onchange="handleAdUpload(this)"/>
+      <button class="host-exit-btn" onclick="exitHostMode()">Exit Host Mode</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('process',this)">⬡ &nbsp;Process Song</button>
+      <button class="tab-btn"        onclick="switchTab('history',this)">🔥 &nbsp;History</button>
+    </div>
+
+    <!-- ══ PROCESS TAB ══ -->
+    <div class="tab-panel active" id="tab-process">
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <span class="upload-icon">⬡</span>
+        <h2>Drop Your Music File Here</h2>
+        <p>MP3 · MP4 · WAV · OGG · FLAC</p>
+        <p style="margin-top:5px;font-size:0.58rem;">Results saved privately to your history</p>
+      </div>
+      <input type="file" id="fileInput" accept=".mp3,.mp4,.wav,.ogg,.flac,audio/*,video/*"/>
+
+      <div class="file-info" id="fileInfo">
+        <span class="file-badge" id="fileBadge">MP3</span>
+        <span class="file-name"  id="fileName"></span>
+        <span id="fileSize" style="font-size:0.58rem;"></span>
+      </div>
+
+      <div class="section-label">// Choose What You Want To Do</div>
+      <div class="mode-grid">
+        <button class="mode-btn active" data-mode="vocals"       onclick="selectMode(this)"><span class="mode-icon">🎤</span>Remove Vocals</button>
+        <button class="mode-btn"        data-mode="instrumental" onclick="selectMode(this)"><span class="mode-icon">🎸</span>Instrumental Only</button>
+        <button class="mode-btn"        data-mode="stems"        onclick="selectMode(this)"><span class="mode-icon">🎛️</span>Split All Stems</button>
+        <button class="mode-btn"        data-mode="bass"         onclick="selectMode(this)"><span class="mode-icon">🎵</span>Isolate Bass</button>
+        <button class="mode-btn"        data-mode="drums"        onclick="selectMode(this)"><span class="mode-icon">🥁</span>Isolate Drums</button>
+      </div>
+
+      <div class="error-box" id="errorBox"></div>
+
+      <button class="process-btn" id="processBtn" onclick="processAudio()" disabled>
+        ⬡ &nbsp; Start AI Separation
+      </button>
+
+      <div class="progress-section" id="progressSection">
+        <div class="progress-label"><span>AI PROCESSING</span><span id="progressPct">0%</span></div>
+        <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
+        <div class="status-text blink" id="statusText">Connecting to AI...</div>
+      </div>
+
+      <div class="save-indicator" id="saveIndicator">🔥 Saved to your history</div>
+
+      <div class="results" id="results">
+        <div class="results-header">// AI Separation Complete — Mix &amp; Download Below</div>
+        <div id="mixerSection" style="display:none;">
+          <div class="mixer-panel">
+            <div class="mixer-title">⬡ DUAL TRACK MIXER</div>
+            <div class="track-row">
+              <div class="track-label">🎸 INSTRUMENTAL<span class="track-sub">Music / No Vocals</span></div>
+              <div class="waveform-wrap" id="waveformA" onclick="seekClick(event,'A')">
+                <canvas class="waveform" id="canvasA"></canvas>
+                <div class="playhead" id="playheadA"></div>
+              </div>
+              <div class="vol-col">
+                <span class="vol-label">VOL</span>
+                <input type="range" class="vol-slider" id="volA" min="0" max="150" value="100" orient="vertical" oninput="updateVol('A',this.value)"/>
+                <span class="vol-val" id="volAVal">100%</span>
+              </div>
+            </div>
+            <div class="track-row">
+              <div class="track-label">🎤 VOCALS<span class="track-sub">Isolated Voice</span></div>
+              <div class="waveform-wrap" id="waveformB" onclick="seekClick(event,'B')">
+                <canvas class="waveform" id="canvasB"></canvas>
+                <div class="playhead" id="playheadB"></div>
+              </div>
+              <div class="vol-col">
+                <span class="vol-label">VOL</span>
+                <input type="range" class="vol-slider" id="volB" min="0" max="150" value="100" orient="vertical" oninput="updateVol('B',this.value)"/>
+                <span class="vol-val" id="volBVal">100%</span>
+              </div>
+            </div>
+            <div class="mixer-controls">
+              <button class="big-play-btn" id="playBtn" onclick="togglePlayback()">▶</button>
+              <div class="scrubber-wrap">
+                <input type="range" class="scrubber" id="scrubber" min="0" max="1000" value="0" oninput="scrubTo(this.value)"/>
+                <div class="time-row"><span id="timeCurrent">0:00</span><span id="timeDuration">0:00</span></div>
+              </div>
+              <div class="mixer-time" id="mixerTime">0:00</div>
+            </div>
+            <div class="export-section">
+              <div class="export-title">// DOWNLOAD — at the exact volumes you set above</div>
+              <div class="export-btns">
+                <button class="export-btn mixed" onclick="exportMixed()">⬡ Download Mixed Track</button>
+                <button class="export-btn" id="dlInstrumental">↓ Instrumental Only</button>
+                <button class="export-btn" id="dlVocals">↓ Vocals Only</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="stemCards"></div>
+        <button class="reset-btn" onclick="resetAll()">↺ &nbsp; Process Another Song</button>
+      </div>
+    </div>
+
+    <!-- ══ HISTORY TAB ══ -->
+    <div class="tab-panel" id="tab-history">
+      <div class="history-loading" id="historyLoading" style="display:none;">Loading history...</div>
+      <div class="history-filter" id="historyFilterBar" style="display:none;">
+        <span class="filter-label">Search:</span>
+        <input class="filter-input" id="historySearch" placeholder="Song name..." oninput="filterHistory()"/>
+      </div>
+      <div id="historyList"></div>
+    </div>
+
+  </div><!-- /container -->
+
+  <script type="module">
+    import { initializeApp }    from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL, listAll, deleteObject }
+                                from "https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, orderBy, query, where }
+                                from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+    import { Client }           from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
+
+    // ── CONFIG ──────────────────────────────────────
+    const SPACE_ID     = 'micln/MEC';
+    const HOST_PASS    = '2011';
+
+    const firebaseConfig = {
+      apiKey:            "AIzaSyDL8QxCLvJ2tXRk7BS1lxLxR7mQMXbwvdA",
+      authDomain:        "music-ff347.firebaseapp.com",
+      projectId:         "music-ff347",
+      storageBucket:     "music-ff347.firebasestorage.app",
+      messagingSenderId: "622237553505",
+      appId:             "1:622237553505:web:6d34099437e21fed582b20"
+    };
+
+    const fbApp   = initializeApp(firebaseConfig);
+    const storage = getStorage(fbApp);
+    const db      = getFirestore(fbApp);
+
+    // ── STATE ────────────────────────────────────────
+    let currentUser  = null;
+    let isHost       = false;
+    let adEnabled    = false;
+    let adFileURL    = null;   // object URL of uploaded ad
+    let adFileType   = null;   // 'video' or 'audio'
+    let adWatched    = false;  // has user watched ad this session
+    let selectedFile = null;
+    let selectedMode = 'vocals';
+    let audioCtx     = null;
+    let bufferA = null, bufferB = null;
+    let sourceA = null, sourceB = null;
+    let gainA = null,   gainB = null;
+    let isPlaying = false, startTime = 0, pauseOffset = 0, duration = 0, rafId = null;
+    let volA = 1.0, volB = 1.0;
+    let allHistoryDocs = [];
+
+    // ── EXPOSE TO HTML ───────────────────────────────
+    window.doLogin        = doLogin;
+    window.doLogout       = doLogout;
+    window.openHostOverlay= openHostOverlay;
+    window.closeHostOverlay=closeHostOverlay;
+    window.tryHostUnlock  = tryHostUnlock;
+    window.exitHostMode   = exitHostMode;
+    window.toggleSkipModal= toggleSkipModal;
+    window.trySkip        = trySkip;
+    window.handleAdUpload = handleAdUpload;
+    window.saveAdSettings = saveAdSettings;
+    window.selectMode     = btn => {
+      document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active'); selectedMode = btn.dataset.mode;
+    };
+    window.processAudio   = processAudio;
+    window.togglePlayback = () => isPlaying ? pausePlayback() : startPlayback();
+    window.updateVol      = updateVol;
+    window.scrubTo        = scrubTo;
+    window.seekClick      = seekClick;
+    window.exportMixed    = exportMixed;
+    window.resetAll       = resetAll;
+    window.switchTab      = switchTab;
+    window.filterHistory  = filterHistory;
+    window.deleteHistory  = deleteHistory;
+
+    // ── LOGIN ────────────────────────────────────────
+    function doLogin() {
+      const val = document.getElementById('loginInput').value.trim();
+      if (!val) { document.getElementById('loginErr').textContent = 'Please enter a username.'; return; }
+      currentUser = val.toLowerCase().replace(/[^a-z0-9_\-]/g,'');
+      if (!currentUser) { document.getElementById('loginErr').textContent = 'Username can only have letters, numbers, - or _'; return; }
+      document.getElementById('loginOverlay').classList.add('hidden');
+      document.getElementById('displayName').textContent = val;
+      document.getElementById('mainApp').style.display = 'block';
+      // Show ad if enabled and not yet watched
+      checkAndShowAd();
+    }
+
+    function doLogout() {
+      currentUser = null; isHost = false; adWatched = false;
+      document.getElementById('mainApp').style.display = 'none';
+      document.getElementById('loginOverlay').classList.remove('hidden');
+      document.getElementById('loginInput').value = '';
+      document.getElementById('loginErr').textContent = '';
+      document.getElementById('hostPanel').classList.remove('visible');
+      resetAll();
+    }
+
+    // ── HOST MODE ────────────────────────────────────
+    function openHostOverlay() { document.getElementById('hostOverlay').classList.remove('hidden'); document.getElementById('hostPassInput').value=''; document.getElementById('hostErr').textContent=''; setTimeout(()=>document.getElementById('hostPassInput').focus(),100); }
+    function closeHostOverlay() { document.getElementById('hostOverlay').classList.add('hidden'); }
+
+    function tryHostUnlock() {
+      const val = document.getElementById('hostPassInput').value;
+      if (val === HOST_PASS) {
+        isHost = true;
+        closeHostOverlay();
+        document.getElementById('hostPanel').classList.add('visible');
+        document.getElementById('adToggleLabel').textContent = adEnabled ? 'ON' : 'OFF';
+        document.getElementById('adToggle').checked = adEnabled;
+        if (adFileURL) document.getElementById('adCurrentFile').textContent = 'Ad file loaded ✓';
+      } else {
+        document.getElementById('hostErr').textContent = 'Wrong password.';
+      }
+    }
+
+    function exitHostMode() {
+      isHost = false;
+      document.getElementById('hostPanel').classList.remove('visible');
+    }
+
+    // ── AD SYSTEM ────────────────────────────────────
+    function saveAdSettings() {
+      adEnabled = document.getElementById('adToggle').checked;
+      document.getElementById('adToggleLabel').textContent = adEnabled ? 'ON' : 'OFF';
+    }
+
+    function handleAdUpload(input) {
+      const file = input.files[0];
+      if (!file) return;
+      if (adFileURL) URL.revokeObjectURL(adFileURL);
+      adFileURL  = URL.createObjectURL(file);
+      adFileType = file.type.startsWith('video') ? 'video' : 'audio';
+      document.getElementById('adCurrentFile').textContent = '✓ ' + file.name;
+    }
+
+    function checkAndShowAd() {
+      if (!adEnabled || !adFileURL || adWatched || isHost) return;
+      showAd();
+    }
+
+    function showAd() {
+      const wrap = document.getElementById('adMediaWrap');
+      wrap.innerHTML = '';
+      const el = document.createElement(adFileType === 'video' ? 'video' : 'audio');
+      el.src = adFileURL;
+      el.autoplay = true;
+      el.controls = false;
+      if (adFileType === 'audio') el.controls = true;
+      wrap.appendChild(el);
+
+      document.getElementById('adOverlay').classList.remove('hidden');
+      document.getElementById('adTimer').textContent = 'Please watch the ad...';
+
+      // Count down from end
+      el.addEventListener('ended', () => {
+        adWatched = true;
+        document.getElementById('adOverlay').classList.add('hidden');
+        document.getElementById('adTimer').textContent = '';
+      });
+
+      // Show countdown
+      el.addEventListener('timeupdate', () => {
+        const remaining = Math.ceil((el.duration || 0) - el.currentTime);
+        if (!isNaN(remaining) && remaining >= 0) {
+          document.getElementById('adTimer').textContent =
+            remaining > 0 ? `Ad ends in ${remaining}s` : 'Almost done...';
+        }
+      });
+    }
+
+    // ── AD SKIP ──────────────────────────────────────
+    function toggleSkipModal() {
+      const m = document.getElementById('skipModal');
+      m.classList.toggle('visible');
+      if (m.classList.contains('visible')) {
+        document.getElementById('skipPassInput').value = '';
+        document.getElementById('skipErr').textContent = '';
+        setTimeout(()=>document.getElementById('skipPassInput').focus(),100);
+      }
+    }
+
+    function trySkip() {
+      const val = document.getElementById('skipPassInput').value;
+      if (val === HOST_PASS) {
+        adWatched = true;
+        document.getElementById('adOverlay').classList.add('hidden');
+        document.getElementById('skipModal').classList.remove('visible');
+        // pause any playing ad media
+        const media = document.querySelector('#adMediaWrap video, #adMediaWrap audio');
+        if (media) { try { media.pause(); } catch(e){} }
+      } else {
+        document.getElementById('skipErr').textContent = 'Wrong password.';
+      }
+    }
+
+    // ── FILE HANDLING ─────────────────────────────────
+    const uploadZone = document.getElementById('uploadZone');
+    const fileInput  = document.getElementById('fileInput');
+    uploadZone.addEventListener('dragover',  e=>{e.preventDefault();uploadZone.classList.add('drag-over');});
+    uploadZone.addEventListener('dragleave', ()=>uploadZone.classList.remove('drag-over'));
+    uploadZone.addEventListener('drop', e=>{
+      e.preventDefault(); uploadZone.classList.remove('drag-over');
+      if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', e=>{if(e.target.files[0]) handleFile(e.target.files[0]);});
+
+    function handleFile(file) {
+      // Show ad if needed before letting them process
+      if (adEnabled && adFileURL && !adWatched && !isHost) { showAd(); return; }
+      selectedFile = file;
+      document.getElementById('fileBadge').textContent = file.name.split('.').pop().toUpperCase();
+      document.getElementById('fileName').textContent   = file.name;
+      document.getElementById('fileSize').textContent   = fmtSize(file.size);
+      document.getElementById('fileInfo').classList.add('visible');
+      document.getElementById('processBtn').disabled    = false;
+      document.getElementById('results').classList.remove('visible');
+      document.getElementById('progressSection').classList.remove('visible');
+      document.getElementById('errorBox').classList.remove('visible');
+      document.getElementById('saveIndicator').classList.remove('visible');
+      stopPlayback();
+    }
+
+    function fmtSize(b){ return b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB'; }
+
+    // ── TABS ──────────────────────────────────────────
+    function switchTab(name, btn) {
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-'+name).classList.add('active');
+      if (name==='history') loadHistory();
+    }
+
+    // ── PROCESS ───────────────────────────────────────
+    async function processAudio() {
+      if (!selectedFile) return;
+      // Show ad gate if enabled
+      if (adEnabled && adFileURL && !adWatched && !isHost) { showAd(); return; }
+
+      document.getElementById('processBtn').disabled = true;
+      document.getElementById('progressSection').classList.add('visible');
+      document.getElementById('results').classList.remove('visible');
+      document.getElementById('errorBox').classList.remove('visible');
+      document.getElementById('saveIndicator').classList.remove('visible');
+      stopPlayback();
+
+      const statusEl = document.getElementById('statusText');
+      statusEl.className='status-text blink'; statusEl.style.color='';
+
+      let fakePct=5; setProgress(fakePct,'Connecting to AI...');
+      const fakeTimer=setInterval(()=>{
+        if(fakePct<86){fakePct+=Math.random()*1.1;setProgress(Math.round(fakePct),statusMsg(fakePct));}
+      },2500);
+
+      try {
+        if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100});
+        const client=await Client.connect(SPACE_ID);
+        setProgress(18,'Uploading to AI...');
+        const gradioMode=['stems','bass','drums'].includes(selectedMode)?'all stems':'vocals only';
+        const result=await client.predict("/predict",{audio_file:selectedFile,mode:gradioMode});
+        clearInterval(fakeTimer);
+        setProgress(90,'Loading your tracks...');
+        const stems=await buildStemsFromResult(result.data);
+        setProgress(95,'Saving to Firebase...');
+        await saveToFirebase(stems);
+        setProgress(100,'✓ Done! Saved to your history.');
+        statusEl.className='status-text';
+        document.getElementById('saveIndicator').classList.add('visible');
+        setTimeout(()=>{
+          document.getElementById('progressSection').classList.remove('visible');
+          buildResults(stems);
+          document.getElementById('results').classList.add('visible');
+        },500);
+      } catch(err) {
+        clearInterval(fakeTimer);
+        console.error(err);
+        const m=err.message||String(err);
+        showError(m.includes('503')||m.includes('sleep')?'The AI is waking up — wait 30 seconds and try again.':m.includes('connect')||m.includes('fetch')?'Could not reach AI. Check your internet.':'⚠ '+m);
+        document.getElementById('progressSection').classList.remove('visible');
+        document.getElementById('processBtn').disabled=false;
+      }
+    }
+
+    function statusMsg(p){
+      if(p<25)return'Uploading song to AI...';
+      if(p<45)return'AI separating vocals from instruments...';
+      if(p<65)return'Cleaning up stems...';
+      if(p<82)return'Almost done — final pass...';
+      return'Finishing up...';
+    }
+
+    function showError(msg){const b=document.getElementById('errorBox');b.textContent=msg;b.classList.add('visible');}
+    function setProgress(pct,msg){
+      document.getElementById('progressBar').style.width=pct+'%';
+      document.getElementById('progressPct').textContent=pct+'%';
+      document.getElementById('statusText').textContent=msg;
+    }
+
+    // ── BUILD STEMS FROM RESULT ───────────────────────
+    async function buildStemsFromResult(data) {
+      const labels=[
+        {name:'Instrumental',icon:'🎸',desc:'Music without vocals', track:'A'},
+        {name:'Vocals',      icon:'🎤',desc:'Isolated vocal track', track:'B'},
+        {name:'Bass',        icon:'🎵',desc:'Low-end bass track',   track:null},
+        {name:'Drums',       icon:'🥁',desc:'Drums and percussion', track:null},
+      ];
+      const stems=[];
+      for(let i=0;i<data.length;i++){
+        const item=data[i]; if(!item) continue;
+        const fileUrl=item.url||(item.path?`https://micln-mec.hf.space/file=${item.path}`:null);
+        if(!fileUrl) continue;
+        try{
+          const res=await fetch(fileUrl);
+          const arrBuf=await res.arrayBuffer();
+          const audBuf=await audioCtx.decodeAudioData(arrBuf.slice(0));
+          const blob=new Blob([arrBuf],{type:'audio/mpeg'});
+          const url=URL.createObjectURL(blob);
+          stems.push({...labels[i],buffer:audBuf,blob,url,arrBuf});
+        }catch(e){console.warn('Stem skip',i,e.message);}
+      }
+      if(!stems.length) throw new Error('No audio came back. Please try again.');
+      return stems;
+    }
+
+    // ── FIREBASE SAVE ─────────────────────────────────
+    async function saveToFirebase(stems) {
+      const jobId=Date.now().toString();
+      const songName=selectedFile.name.replace(/\.[^.]+$/,'');
+      const stemRefs=[];
+      for(const stem of stems){
+        try{
+          const path=`stems/${currentUser}/${jobId}/${stem.name}.mp3`;
+          const sRef=ref(storage,path);
+          await uploadBytes(sRef,stem.arrBuf,{contentType:'audio/mpeg'});
+          const dlURL=await getDownloadURL(sRef);
+          stemRefs.push({name:stem.name,icon:stem.icon,desc:stem.desc,url:dlURL,path});
+        }catch(e){console.warn('Upload fail',stem.name,e);}
+      }
+      if(stemRefs.length>0){
+        await addDoc(collection(db,'history'),{
+          username:currentUser, songName, mode:selectedMode,
+          date:new Date().toISOString(), jobId, stems:stemRefs
+        });
+      }
+    }
+
+    // ── FIREBASE LOAD HISTORY ────────────────────────
+    async function loadHistory() {
+      const loading=document.getElementById('historyLoading');
+      const list=document.getElementById('historyList');
+      const filterBar=document.getElementById('historyFilterBar');
+      loading.style.display='block';
+      list.innerHTML=''; allHistoryDocs=[];
+
+      try{
+        let q;
+        if(isHost){
+          // Host sees everyone's history
+          q=query(collection(db,'history'),orderBy('date','desc'));
+        } else {
+          // Normal user sees only their own
+          q=query(collection(db,'history'),where('username','==',currentUser),orderBy('date','desc'));
+        }
+        const snap=await getDocs(q);
+        loading.style.display='none';
+
+        if(snap.empty){
+          list.innerHTML=`<div class="history-empty"><span class="big-icon">🎵</span>${isHost?'No history found for any user yet.':'No history yet — process your first song and it appears here!'}</div>`;
+          filterBar.style.display='none';
+          return;
+        }
+
+        filterBar.style.display='flex';
+        snap.forEach(docSnap=>{
+          allHistoryDocs.push({id:docSnap.id, data:docSnap.data()});
+        });
+        renderHistoryCards(allHistoryDocs);
+
+      }catch(e){
+        loading.style.display='none';
+        list.innerHTML=`<div class="history-empty">Could not load history. Check Firebase settings.</div>`;
+        console.error(e);
+      }
+    }
+
+    function renderHistoryCards(docs) {
+      const list=document.getElementById('historyList');
+      list.innerHTML='';
+      if(!docs.length){
+        list.innerHTML=`<div class="history-empty"><span class="big-icon">🎵</span>No results found.</div>`;
+        return;
+      }
+      const modeLabel={vocals:'Remove Vocals',instrumental:'Instrumental',stems:'Split All Stems',bass:'Isolate Bass',drums:'Isolate Drums'};
+      docs.forEach(({id,data:d})=>{
+        const date=new Date(d.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+        const stemsHTML=(d.stems||[]).map(s=>`<a class="hcard-stem-btn" href="${s.url}" download="${d.songName}_${s.name}.mp3" target="_blank">${s.icon} ${s.name}</a>`).join('');
+        const hostBadge=isHost?`<span class="host-only-badge">👤 ${d.username||'unknown'}</span>`:'';
+        const card=document.createElement('div');
+        card.className='history-card';
+        card.dataset.docid=id;
+        card.innerHTML=`
+          <div class="hcard-top">
+            <span class="hcard-icon">🎵</span>
+            <div class="hcard-info">
+              <div class="hcard-name">${d.songName}</div>
+              <div class="hcard-meta">${modeLabel[d.mode]||d.mode} ${hostBadge}</div>
+            </div>
+            <div class="hcard-date">${date}</div>
+          </div>
+          <div class="hcard-stems">${stemsHTML}</div>
+          <div class="hcard-actions">
+            <button class="hcard-delete" onclick="deleteHistory('${id}','${d.jobId}','${d.username||''}',this)">🗑 Delete</button>
+          </div>`;
+        list.appendChild(card);
+      });
+    }
+
+    function filterHistory() {
+      const q=document.getElementById('historySearch').value.toLowerCase();
+      const filtered=allHistoryDocs.filter(({data:d})=>
+        d.songName.toLowerCase().includes(q)||(d.username||'').toLowerCase().includes(q)
+      );
+      renderHistoryCards(filtered);
+    }
+
+    // ── FIREBASE DELETE ───────────────────────────────
+    async function deleteHistory(docId,jobId,username,btn) {
+      // Non-host can only delete their own
+      if(!isHost && username!==currentUser){alert('You can only delete your own history.');return;}
+      btn.textContent='Deleting...';
+      try{
+        await deleteDoc(doc(db,'history',docId));
+        try{
+          const folderRef=ref(storage,`stems/${username||currentUser}/${jobId}`);
+          const files=await listAll(folderRef);
+          await Promise.all(files.items.map(f=>deleteObject(f)));
+        }catch(e){}
+        btn.closest('.history-card').remove();
+        allHistoryDocs=allHistoryDocs.filter(d=>d.id!==docId);
+        if(!document.querySelector('.history-card')){
+          document.getElementById('historyList').innerHTML=`<div class="history-empty"><span class="big-icon">🎵</span>No history yet.</div>`;
+          document.getElementById('historyFilterBar').style.display='none';
+        }
+      }catch(e){btn.textContent='🗑 Delete';alert('Delete failed: '+e.message);}
+    }
+
+    // ── BUILD RESULTS UI ──────────────────────────────
+    function buildResults(stems){
+      const isMixer=['vocals','instrumental'].includes(selectedMode);
+      document.getElementById('mixerSection').style.display=isMixer?'block':'none';
+      document.getElementById('stemCards').innerHTML='';
+      if(isMixer){
+        const sA=stems.find(s=>s.track==='A');
+        const sB=stems.find(s=>s.track==='B');
+        if(!sA||!sB){showSimpleCards(stems);return;}
+        bufferA=sA.buffer;bufferB=sB.buffer;duration=bufferA.duration;
+        document.getElementById('timeDuration').textContent=fmtTime(duration);
+        document.getElementById('scrubber').value=0;pauseOffset=0;
+        drawWaveform('canvasA',bufferA,'#00ff41');
+        drawWaveform('canvasB',bufferB,'#00cc33');
+        const base=selectedFile.name.replace(/\.[^.]+$/,'');
+        document.getElementById('dlInstrumental').onclick=()=>downloadBlob(sA.blob,base+'_Instrumental.mp3');
+        document.getElementById('dlVocals').onclick=()=>downloadBlob(sB.blob,base+'_Vocals.mp3');
+      }else{showSimpleCards(stems);}
+    }
+
+    function showSimpleCards(stems){
+      const cont=document.getElementById('stemCards');
+      const base=selectedFile.name.replace(/\.[^.]+$/,'');
+      stems.forEach(s=>{
+        const c=document.createElement('div');c.className='stem-card';
+        c.innerHTML=`<div class="stem-top"><span class="stem-icon">${s.icon}</span><div class="stem-info"><div class="stem-name">${s.name}</div><div class="stem-desc">${s.desc}</div></div><a class="dl-btn" href="${s.url}" download="${base}_${s.name}.mp3">↓ Download</a></div><audio controls src="${s.url}"></audio>`;
+        cont.appendChild(c);
+      });
+    }
+
+    // ── WAVEFORM ──────────────────────────────────────
+    function drawWaveform(id,buf,color){
+      const canvas=document.getElementById(id);
+      const dpr=window.devicePixelRatio||1;
+      const W=canvas.parentElement.clientWidth||500,H=60;
+      canvas.width=W*dpr;canvas.height=H*dpr;
+      canvas.style.width=W+'px';canvas.style.height=H+'px';
+      const ctx=canvas.getContext('2d');
+      ctx.scale(dpr,dpr);ctx.clearRect(0,0,W,H);
+      const data=buf.getChannelData(0);
+      const step=Math.ceil(data.length/W),mid=H/2;
+      ctx.shadowBlur=6;ctx.shadowColor=color;ctx.strokeStyle=color;ctx.lineWidth=1;ctx.beginPath();
+      for(let x=0;x<W;x++){
+        let mn=1,mx=-1;const b=x*step;
+        for(let j=0;j<step&&b+j<data.length;j++){const v=data[b+j];if(v<mn)mn=v;if(v>mx)mx=v;}
+        ctx.moveTo(x,mid+mn*mid*0.9);ctx.lineTo(x,mid+mx*mid*0.9);
+      }
+      ctx.stroke();
+    }
+
+    // ── PLAYBACK ──────────────────────────────────────
+    function startPlayback(){
+      if(!bufferA||!bufferB)return;
+      if(audioCtx.state==='suspended')audioCtx.resume();
+      stopNodes();
+      gainA=audioCtx.createGain();gainA.gain.value=volA;
+      gainB=audioCtx.createGain();gainB.gain.value=volB;
+      sourceA=audioCtx.createBufferSource();sourceA.buffer=bufferA;
+      sourceB=audioCtx.createBufferSource();sourceB.buffer=bufferB;
+      sourceA.connect(gainA);gainA.connect(audioCtx.destination);
+      sourceB.connect(gainB);gainB.connect(audioCtx.destination);
+      const off=Math.min(pauseOffset,duration-0.05);
+      startTime=audioCtx.currentTime-off;
+      sourceA.start(0,off);sourceB.start(0,off);
+      sourceA.onended=()=>{if(isPlaying)onEnded();};
+      isPlaying=true;
+      document.getElementById('playBtn').innerHTML='⏸';
+      document.getElementById('playBtn').classList.add('playing');
+      animate();
+    }
+    function pausePlayback(){
+      pauseOffset=audioCtx.currentTime-startTime;stopNodes();isPlaying=false;
+      document.getElementById('playBtn').innerHTML='▶';
+      document.getElementById('playBtn').classList.remove('playing');
+      cancelAnimationFrame(rafId);
+    }
+    function stopPlayback(){
+      stopNodes();isPlaying=false;pauseOffset=0;
+      const b=document.getElementById('playBtn');
+      if(b){b.innerHTML='▶';b.classList.remove('playing');}
+      cancelAnimationFrame(rafId);setPlayheads(0);
+    }
+    function stopNodes(){
+      try{if(sourceA){sourceA.onended=null;sourceA.stop();}}catch(e){}
+      try{if(sourceB){sourceB.stop();}}catch(e){}
+      sourceA=sourceB=null;
+    }
+    function onEnded(){
+      isPlaying=false;pauseOffset=0;
+      document.getElementById('playBtn').innerHTML='▶';
+      document.getElementById('playBtn').classList.remove('playing');
+      cancelAnimationFrame(rafId);setPlayheads(0);
+      document.getElementById('scrubber').value=0;
+      document.getElementById('timeCurrent').textContent='0:00';
+      document.getElementById('mixerTime').textContent='0:00';
+    }
+    function animate(){
+      rafId=requestAnimationFrame(()=>{
+        if(!isPlaying)return;
+        const el=audioCtx.currentTime-startTime;
+        const fr=Math.min(el/duration,1);
+        setPlayheads(fr);
+        document.getElementById('scrubber').value=Math.round(fr*1000);
+        document.getElementById('timeCurrent').textContent=fmtTime(el);
+        document.getElementById('mixerTime').textContent=fmtTime(el);
+        if(fr<1)animate();else onEnded();
+      });
+    }
+    function setPlayheads(fr){
+      ['A','B'].forEach(t=>{
+        const w=document.getElementById('waveform'+t);
+        const p=document.getElementById('playhead'+t);
+        if(w&&p)p.style.left=(fr*w.clientWidth)+'px';
+      });
+    }
+    function seekClick(e,t){
+      const r=e.currentTarget.getBoundingClientRect();
+      scrubTo(Math.round(((e.clientX-r.left)/r.width)*1000));
+    }
+    function scrubTo(val){
+      pauseOffset=(val/1000)*duration;
+      document.getElementById('scrubber').value=val;
+      document.getElementById('timeCurrent').textContent=fmtTime(pauseOffset);
+      document.getElementById('mixerTime').textContent=fmtTime(pauseOffset);
+      setPlayheads(val/1000);
+      if(isPlaying)startPlayback();
+    }
+    function updateVol(t,val){
+      const g=val/100;
+      document.getElementById('vol'+t+'Val').textContent=val+'%';
+      if(t==='A'){volA=g;if(gainA)gainA.gain.value=volA;}
+      else       {volB=g;if(gainB)gainB.gain.value=volB;}
+    }
+    function fmtTime(s){s=Math.max(0,s||0);const m=Math.floor(s/60),sec=Math.floor(s%60);return m+':'+(sec<10?'0':'')+sec;}
+
+    // ── EXPORT ────────────────────────────────────────
+    function exportMixed(){
+      if(!bufferA||!bufferB)return;
+      const base=selectedFile.name.replace(/\.[^.]+$/,'');
+      downloadBlob(mixToWav(bufferA,bufferB,volA,volB),base+'_Mixed.wav');
+    }
+    function mixToWav(bA,bB,gA,gB){
+      const nCh=Math.max(bA.numberOfChannels,bB.numberOfChannels);
+      const ns=Math.max(bA.length,bB.length),sr=bA.sampleRate;
+      const dSz=ns*nCh*2,ab=new ArrayBuffer(44+dSz),v=new DataView(ab);
+      const ws=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));};
+      ws(0,'RIFF');v.setUint32(4,36+dSz,true);ws(8,'WAVE');ws(12,'fmt ');
+      v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,nCh,true);
+      v.setUint32(24,sr,true);v.setUint32(28,sr*nCh*2,true);
+      v.setUint16(32,nCh*2,true);v.setUint16(34,16,true);
+      ws(36,'data');v.setUint32(40,dSz,true);
+      let off=44;
+      for(let i=0;i<ns;i++){
+        for(let c=0;c<nCh;c++){
+          const sA=i<bA.length?bA.getChannelData(Math.min(c,bA.numberOfChannels-1))[i]*gA:0;
+          const sB=i<bB.length?bB.getChannelData(Math.min(c,bB.numberOfChannels-1))[i]*gB:0;
+          const s=Math.max(-1,Math.min(1,sA+sB));
+          v.setInt16(off,s<0?s*32768:s*32767,true);off+=2;
+        }
+      }
+      return new Blob([ab],{type:'audio/wav'});
+    }
+    function downloadBlob(blob,name){
+      const url=URL.createObjectURL(blob),a=document.createElement('a');
+      a.href=url;a.download=name;document.body.appendChild(a);a.click();
+      document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),5000);
+    }
+
+    // ── RESET ─────────────────────────────────────────
+    function resetAll(){
+      stopPlayback();selectedFile=bufferA=bufferB=null;
+      ['fileInfo','results','progressSection','errorBox','saveIndicator'].forEach(id=>
+        document.getElementById(id).classList.remove('visible'));
+      document.getElementById('processBtn').disabled=true;
+      document.getElementById('processBtn').textContent='⬡   Start AI Separation';
+      document.getElementById('progressBar').style.width='0%';
+      document.getElementById('stemCards').innerHTML='';
+      fileInput.value='';pauseOffset=0;
+    }
+  </script>
+</body>
+</html>
