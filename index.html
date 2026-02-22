@@ -19,7 +19,6 @@
     body::before { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,65,0.015) 2px,rgba(0,255,65,0.015) 4px); pointer-events:none; z-index:9999; }
     body::after { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(0,255,65,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,65,0.04) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; }
 
-    /* ── OVERLAY (login + ad + host password) ── */
     .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:1000; display:flex; align-items:center; justify-content:center; }
     .overlay.hidden { display:none; }
     .modal { background:var(--bg3); border:1px solid var(--neon-dim); box-shadow:var(--neon-glow-strong); border-radius:6px; padding:36px 32px; width:100%; max-width:420px; text-align:center; position:relative; }
@@ -32,7 +31,6 @@
     .modal-btn:hover { background:rgba(0,255,65,0.08); }
     .modal-err { font-size:0.6rem; color:rgba(255,100,100,0.85); margin-top:10px; min-height:18px; }
 
-    /* ── AD OVERLAY ── */
     .ad-overlay { position:fixed; inset:0; background:#000; z-index:2000; display:flex; flex-direction:column; align-items:center; justify-content:center; }
     .ad-overlay.hidden { display:none; }
     .ad-media-wrap { position:relative; width:100%; max-width:860px; }
@@ -43,7 +41,6 @@
     .ad-skip-btn { background:rgba(0,0,0,0.7); border:1px solid rgba(0,255,65,0.3); color:var(--text-dim); font-family:'Share Tech Mono',monospace; font-size:0.52rem; letter-spacing:0.1em; padding:7px 14px; border-radius:2px; cursor:pointer; transition:all 0.2s; }
     .ad-skip-btn:hover { border-color:var(--neon); color:var(--neon); }
 
-    /* ── HOST SKIP PASSWORD MODAL ── */
     .skip-modal { position:fixed; bottom:64px; right:24px; z-index:2200; background:var(--bg3); border:1px solid var(--neon-dim); box-shadow:var(--neon-glow); border-radius:4px; padding:16px; width:240px; display:none; }
     .skip-modal.visible { display:block; }
     .skip-modal input { width:100%; background:rgba(0,255,65,0.04); border:1px solid rgba(0,255,65,0.25); color:var(--neon); font-family:'Share Tech Mono',monospace; font-size:0.75rem; padding:8px 10px; border-radius:2px; outline:none; letter-spacing:0.1em; margin-bottom:8px; text-align:center; }
@@ -52,7 +49,6 @@
     .skip-modal button:hover { background:rgba(0,255,65,0.08); }
     .skip-err { font-size:0.56rem; color:rgba(255,100,100,0.8); margin-top:6px; min-height:14px; }
 
-    /* ── MAIN LAYOUT ── */
     .container { position:relative; z-index:1; max-width:940px; margin:0 auto; padding:34px 20px 100px; }
     header { text-align:center; margin-bottom:32px; position:relative; }
     .logo { font-family:'Orbitron',monospace; font-size:clamp(2.2rem,7vw,4.5rem); font-weight:900; color:var(--neon); text-shadow:var(--neon-glow-strong); letter-spacing:0.2em; animation:flicker 8s infinite; }
@@ -60,7 +56,6 @@
     .tagline { font-size:0.7rem; color:var(--text-dim); letter-spacing:0.4em; margin-top:6px; text-transform:uppercase; }
     @keyframes flicker { 0%,95%,100%{opacity:1}96%{opacity:.85}97%{opacity:1}98%{opacity:.7}99%{opacity:1} }
 
-    /* ── TOP BAR ── */
     .top-bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px; flex-wrap:wrap; }
     .user-pill { display:flex; align-items:center; gap:8px; background:rgba(0,255,65,0.05); border:1px solid rgba(0,255,65,0.2); border-radius:20px; padding:6px 14px; font-size:0.6rem; color:var(--text-dim); }
     .user-pill .uname { color:var(--neon); text-shadow:0 0 6px var(--neon); font-family:'Orbitron',monospace; font-size:0.58rem; }
@@ -70,14 +65,12 @@
     .ai-dot { width:7px; height:7px; border-radius:50%; background:var(--neon); box-shadow:var(--neon-glow); animation:pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(0.8)} }
 
-    /* ── HOST PANEL ── */
     .host-panel { background:linear-gradient(135deg,rgba(255,107,0,0.06),rgba(0,0,0,0)); border:1px solid rgba(255,107,0,0.3); border-radius:4px; padding:18px 20px; margin-bottom:22px; display:none; }
     .host-panel.visible { display:block; }
     .host-title { font-family:'Orbitron',monospace; font-size:0.65rem; letter-spacing:0.2em; color:#ff6b00; text-shadow:0 0 10px #ff6b00; margin-bottom:14px; }
     .host-row { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
     .host-label { font-size:0.62rem; color:rgba(255,180,100,0.7); }
 
-    /* Toggle switch */
     .toggle-wrap { display:flex; align-items:center; gap:10px; }
     .toggle { position:relative; width:44px; height:24px; cursor:pointer; }
     .toggle input { opacity:0; width:0; height:0; }
@@ -96,7 +89,6 @@
     .host-exit-btn { background:transparent; border:1px solid rgba(255,107,0,0.3); color:rgba(255,107,0,0.6); font-family:'Share Tech Mono',monospace; font-size:0.54rem; padding:5px 12px; cursor:pointer; border-radius:2px; transition:all 0.2s; margin-left:auto; display:block; margin-top:12px; }
     .host-exit-btn:hover { border-color:#ff6b00; color:#ff6b00; }
 
-    /* ── TABS ── */
     .tabs { display:flex; gap:0; margin-bottom:26px; border-bottom:1px solid rgba(0,255,65,0.15); }
     .tab-btn { background:transparent; border:none; color:var(--text-dim); font-family:'Orbitron',monospace; font-size:0.58rem; letter-spacing:0.2em; padding:11px 22px; cursor:pointer; text-transform:uppercase; border-bottom:2px solid transparent; transition:all 0.2s; }
     .tab-btn:hover { color:var(--text); }
@@ -104,7 +96,6 @@
     .tab-panel { display:none; }
     .tab-panel.active { display:block; }
 
-    /* ── UPLOAD ── */
     .upload-zone { border:1px solid var(--neon-dim); box-shadow:var(--neon-glow),inset 0 0 30px rgba(0,255,65,0.03); border-radius:4px; padding:50px 40px; text-align:center; cursor:pointer; transition:all 0.3s; margin-bottom:22px; }
     .upload-zone:hover,.upload-zone.drag-over { background:rgba(0,255,65,0.03); box-shadow:var(--neon-glow-strong),inset 0 0 60px rgba(0,255,65,0.05); }
     .upload-icon { font-size:2.6rem; margin-bottom:12px; display:block; filter:drop-shadow(0 0 8px var(--neon)); }
@@ -112,27 +103,23 @@
     .upload-zone p { font-size:0.68rem; color:var(--text-dim); letter-spacing:0.08em; }
     #fileInput { display:none; }
 
-    /* ── FILE INFO ── */
     .file-info { display:none; background:var(--bg3); border:1px solid rgba(0,255,65,0.2); border-radius:3px; padding:12px 17px; margin-bottom:16px; font-size:0.68rem; color:var(--text-dim); align-items:center; gap:12px; }
     .file-info.visible { display:flex; }
     .file-badge { background:var(--neon); color:#000; font-family:'Orbitron',monospace; font-size:0.46rem; font-weight:700; padding:3px 7px; border-radius:2px; }
     .file-name { flex:1; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-    /* ── MODE ── */
     .section-label { font-family:'Orbitron',monospace; font-size:0.56rem; letter-spacing:0.28em; color:var(--text-dim); text-transform:uppercase; margin-bottom:10px; }
     .mode-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:9px; margin-bottom:20px; }
     .mode-btn { background:transparent; border:1px solid var(--neon-dim); box-shadow:var(--neon-glow); color:var(--text); font-family:'Orbitron',monospace; font-size:0.55rem; letter-spacing:0.1em; padding:12px 7px; cursor:pointer; border-radius:3px; transition:all 0.2s; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; gap:5px; }
     .mode-btn .mode-icon { font-size:1.2rem; }
     .mode-btn:hover,.mode-btn.active { background:rgba(0,255,65,0.08); border-color:var(--neon); color:var(--neon); box-shadow:var(--neon-glow-strong); text-shadow:0 0 8px var(--neon); }
 
-    /* ── PROCESS BTN ── */
     .process-btn { width:100%; background:transparent; border:2px solid var(--neon); box-shadow:var(--neon-glow-strong); color:var(--neon); font-family:'Orbitron',monospace; font-size:0.82rem; font-weight:700; letter-spacing:0.3em; padding:18px; cursor:pointer; border-radius:3px; text-transform:uppercase; transition:all 0.2s; text-shadow:var(--neon-glow); margin-bottom:24px; position:relative; overflow:hidden; }
     .process-btn::after { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(0,255,65,0.12),transparent); transition:left 0.5s; }
     .process-btn:hover::after { left:100%; }
     .process-btn:hover { background:rgba(0,255,65,0.08); }
     .process-btn:disabled { opacity:0.3; cursor:not-allowed; box-shadow:none; }
 
-    /* ── PROGRESS ── */
     .progress-section { display:none; margin-bottom:24px; }
     .progress-section.visible { display:block; }
     .progress-label { font-size:0.58rem; letter-spacing:0.25em; color:var(--text-dim); margin-bottom:8px; display:flex; justify-content:space-between; }
@@ -147,12 +134,10 @@
     .save-indicator { display:none; background:rgba(0,255,65,0.07); border:1px solid rgba(0,255,65,0.2); border-radius:3px; padding:9px 15px; font-size:0.6rem; color:var(--neon); letter-spacing:0.08em; margin-bottom:13px; text-align:center; }
     .save-indicator.visible { display:block; }
 
-    /* ── RESULTS ── */
     .results { display:none; }
     .results.visible { display:block; }
     .results-header { font-family:'Orbitron',monospace; font-size:0.58rem; letter-spacing:0.25em; color:var(--text-dim); text-transform:uppercase; margin-bottom:15px; padding-bottom:8px; border-bottom:1px solid rgba(0,255,65,0.14); }
 
-    /* ── MIXER ── */
     .mixer-panel { background:var(--bg3); border:1px solid rgba(0,255,65,0.2); border-radius:4px; padding:20px; margin-bottom:13px; }
     .mixer-title { font-family:'Orbitron',monospace; font-size:0.62rem; letter-spacing:0.18em; color:var(--neon); text-shadow:0 0 6px var(--neon); margin-bottom:15px; }
     .track-row { display:grid; grid-template-columns:106px 1fr 83px; align-items:center; gap:12px; margin-bottom:14px; }
@@ -195,7 +180,6 @@
     .reset-btn { background:transparent; border:1px solid rgba(0,255,65,0.2); color:var(--text-dim); font-family:'Share Tech Mono',monospace; font-size:0.6rem; letter-spacing:0.18em; padding:9px 18px; cursor:pointer; border-radius:2px; text-transform:uppercase; margin-top:16px; transition:all 0.2s; }
     .reset-btn:hover { border-color:var(--neon-dim); color:var(--neon); box-shadow:var(--neon-glow); }
 
-    /* ── HISTORY ── */
     .history-empty { text-align:center; padding:55px 20px; color:var(--text-dim); font-size:0.68rem; letter-spacing:0.08em; line-height:2; }
     .history-empty .big-icon { font-size:2.8rem; display:block; margin-bottom:14px; opacity:0.35; }
     .history-filter { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
@@ -236,7 +220,6 @@
   <div class="corner-decor tl"></div><div class="corner-decor tr"></div>
   <div class="corner-decor bl"></div><div class="corner-decor br"></div>
 
-  <!-- ══ LOGIN OVERLAY ══════════════════════════════ -->
   <div class="overlay" id="loginOverlay">
     <div class="modal">
       <div class="modal-title">STEM<span style="color:#fff">IX</span></div>
@@ -248,18 +231,15 @@
     </div>
   </div>
 
-  <!-- ══ AD OVERLAY ════════════════════════════════ -->
   <div class="ad-overlay hidden" id="adOverlay">
     <div class="ad-label">ADVERTISEMENT — Please watch before continuing</div>
     <div class="ad-media-wrap" id="adMediaWrap"></div>
     <div class="ad-timer" id="adTimer">Please wait...</div>
-    <!-- tiny skip button bottom right — only works with host password -->
     <div class="ad-skip-bar">
       <button class="ad-skip-btn" onclick="toggleSkipModal()">⬡ Skip (Host only)</button>
     </div>
   </div>
 
-  <!-- ══ HOST SKIP PASSWORD ════════════════════════ -->
   <div class="skip-modal" id="skipModal">
     <input type="password" id="skipPassInput" placeholder="Host password" maxlength="20"
       onkeydown="if(event.key==='Enter') trySkip()"/>
@@ -267,7 +247,6 @@
     <div class="skip-err" id="skipErr"></div>
   </div>
 
-  <!-- ══ HOST UNLOCK MODAL ═════════════════════════ -->
   <div class="overlay hidden" id="hostOverlay">
     <div class="modal">
       <div class="modal-title" style="color:#ff6b00;text-shadow:0 0 12px #ff6b00;">HOST MODE</div>
@@ -282,14 +261,12 @@
     </div>
   </div>
 
-  <!-- ══ MAIN APP ═══════════════════════════════════ -->
   <div class="container" id="mainApp" style="display:none;">
     <header>
       <div class="logo">STEM<span>IX</span></div>
       <div class="tagline">AI Vocal Remover &amp; Stem Splitter</div>
     </header>
 
-    <!-- Top bar -->
     <div class="top-bar">
       <div class="user-pill">
         👤 Logged in as <span class="uname" id="displayName"></span>
@@ -304,7 +281,6 @@
       </div>
     </div>
 
-    <!-- Host panel -->
     <div class="host-panel" id="hostPanel">
       <div class="host-title">🔥 HOST CONTROL PANEL</div>
       <div class="host-row">
@@ -325,13 +301,11 @@
       <button class="host-exit-btn" onclick="exitHostMode()">Exit Host Mode</button>
     </div>
 
-    <!-- Tabs -->
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('process',this)">⬡ &nbsp;Process Song</button>
       <button class="tab-btn"        onclick="switchTab('history',this)">🔥 &nbsp;History</button>
     </div>
 
-    <!-- ══ PROCESS TAB ══ -->
     <div class="tab-panel active" id="tab-process">
       <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
         <span class="upload-icon">⬡</span>
@@ -422,7 +396,6 @@
       </div>
     </div>
 
-    <!-- ══ HISTORY TAB ══ -->
     <div class="tab-panel" id="tab-history">
       <div class="history-loading" id="historyLoading" style="display:none;">Loading history...</div>
       <div class="history-filter" id="historyFilterBar" style="display:none;">
@@ -432,7 +405,7 @@
       <div id="historyList"></div>
     </div>
 
-  </div><!-- /container -->
+  </div>
 
   <script type="module">
     import { initializeApp }    from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
@@ -443,8 +416,8 @@
     import { Client }           from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
 
     // ── CONFIG ──────────────────────────────────────
-    const SPACE_ID     = 'micln/MEC';
-    const HOST_PASS    = '2011';
+    const SPACE_ID  = 'micln/MEC';
+    const HOST_PASS = '2011';
 
     const firebaseConfig = {
       apiKey:            "AIzaSyDL8QxCLvJ2tXRk7BS1lxLxR7mQMXbwvdA",
@@ -463,9 +436,9 @@
     let currentUser  = null;
     let isHost       = false;
     let adEnabled    = false;
-    let adFileURL    = null;   // object URL of uploaded ad
-    let adFileType   = null;   // 'video' or 'audio'
-    let adWatched    = false;  // has user watched ad this session
+    let adFileURL    = null;
+    let adFileType   = null;
+    let adWatched    = false;
     let selectedFile = null;
     let selectedMode = 'vocals';
     let audioCtx     = null;
@@ -477,30 +450,30 @@
     let allHistoryDocs = [];
 
     // ── EXPOSE TO HTML ───────────────────────────────
-    window.doLogin        = doLogin;
-    window.doLogout       = doLogout;
-    window.openHostOverlay= openHostOverlay;
-    window.closeHostOverlay=closeHostOverlay;
-    window.tryHostUnlock  = tryHostUnlock;
-    window.exitHostMode   = exitHostMode;
-    window.toggleSkipModal= toggleSkipModal;
-    window.trySkip        = trySkip;
-    window.handleAdUpload = handleAdUpload;
-    window.saveAdSettings = saveAdSettings;
-    window.selectMode     = btn => {
+    window.doLogin         = doLogin;
+    window.doLogout        = doLogout;
+    window.openHostOverlay = openHostOverlay;
+    window.closeHostOverlay= closeHostOverlay;
+    window.tryHostUnlock   = tryHostUnlock;
+    window.exitHostMode    = exitHostMode;
+    window.toggleSkipModal = toggleSkipModal;
+    window.trySkip         = trySkip;
+    window.handleAdUpload  = handleAdUpload;
+    window.saveAdSettings  = saveAdSettings;
+    window.selectMode      = btn => {
       document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active'); selectedMode = btn.dataset.mode;
     };
-    window.processAudio   = processAudio;
-    window.togglePlayback = () => isPlaying ? pausePlayback() : startPlayback();
-    window.updateVol      = updateVol;
-    window.scrubTo        = scrubTo;
-    window.seekClick      = seekClick;
-    window.exportMixed    = exportMixed;
-    window.resetAll       = resetAll;
-    window.switchTab      = switchTab;
-    window.filterHistory  = filterHistory;
-    window.deleteHistory  = deleteHistory;
+    window.processAudio    = processAudio;
+    window.togglePlayback  = () => isPlaying ? pausePlayback() : startPlayback();
+    window.updateVol       = updateVol;
+    window.scrubTo         = scrubTo;
+    window.seekClick       = seekClick;
+    window.exportMixed     = exportMixed;
+    window.resetAll        = resetAll;
+    window.switchTab       = switchTab;
+    window.filterHistory   = filterHistory;
+    window.deleteHistory   = deleteHistory;
 
     // ── LOGIN ────────────────────────────────────────
     function doLogin() {
@@ -511,7 +484,6 @@
       document.getElementById('loginOverlay').classList.add('hidden');
       document.getElementById('displayName').textContent = val;
       document.getElementById('mainApp').style.display = 'block';
-      // Show ad if enabled and not yet watched
       checkAndShowAd();
     }
 
@@ -526,7 +498,7 @@
     }
 
     // ── HOST MODE ────────────────────────────────────
-    function openHostOverlay() { document.getElementById('hostOverlay').classList.remove('hidden'); document.getElementById('hostPassInput').value=''; document.getElementById('hostErr').textContent=''; setTimeout(()=>document.getElementById('hostPassInput').focus(),100); }
+    function openHostOverlay()  { document.getElementById('hostOverlay').classList.remove('hidden'); document.getElementById('hostPassInput').value=''; document.getElementById('hostErr').textContent=''; setTimeout(()=>document.getElementById('hostPassInput').focus(),100); }
     function closeHostOverlay() { document.getElementById('hostOverlay').classList.add('hidden'); }
 
     function tryHostUnlock() {
@@ -577,18 +549,13 @@
       el.controls = false;
       if (adFileType === 'audio') el.controls = true;
       wrap.appendChild(el);
-
       document.getElementById('adOverlay').classList.remove('hidden');
       document.getElementById('adTimer').textContent = 'Please watch the ad...';
-
-      // Count down from end
       el.addEventListener('ended', () => {
         adWatched = true;
         document.getElementById('adOverlay').classList.add('hidden');
         document.getElementById('adTimer').textContent = '';
       });
-
-      // Show countdown
       el.addEventListener('timeupdate', () => {
         const remaining = Math.ceil((el.duration || 0) - el.currentTime);
         if (!isNaN(remaining) && remaining >= 0) {
@@ -615,7 +582,6 @@
         adWatched = true;
         document.getElementById('adOverlay').classList.add('hidden');
         document.getElementById('skipModal').classList.remove('visible');
-        // pause any playing ad media
         const media = document.querySelector('#adMediaWrap video, #adMediaWrap audio');
         if (media) { try { media.pause(); } catch(e){} }
       } else {
@@ -635,7 +601,6 @@
     fileInput.addEventListener('change', e=>{if(e.target.files[0]) handleFile(e.target.files[0]);});
 
     function handleFile(file) {
-      // Show ad if needed before letting them process
       if (adEnabled && adFileURL && !adWatched && !isHost) { showAd(); return; }
       selectedFile = file;
       document.getElementById('fileBadge').textContent = file.name.split('.').pop().toUpperCase();
@@ -664,7 +629,6 @@
     // ── PROCESS ───────────────────────────────────────
     async function processAudio() {
       if (!selectedFile) return;
-      // Show ad gate if enabled
       if (adEnabled && adFileURL && !adWatched && !isHost) { showAd(); return; }
 
       document.getElementById('processBtn').disabled = true;
@@ -677,17 +641,30 @@
       const statusEl = document.getElementById('statusText');
       statusEl.className='status-text blink'; statusEl.style.color='';
 
+      // FIX 1: Fake progress stays under 82 so real steps (90/95/100) are visible jumps
+      // FIX 2: Slower interval (3s) avoids reaching cap before AI even responds
       let fakePct=5; setProgress(fakePct,'Connecting to AI...');
       const fakeTimer=setInterval(()=>{
-        if(fakePct<86){fakePct+=Math.random()*1.1;setProgress(Math.round(fakePct),statusMsg(fakePct));}
-      },2500);
+        if(fakePct<82){fakePct+=Math.random()*0.8;setProgress(Math.round(fakePct),statusMsg(fakePct));}
+      },3000);
 
       try {
         if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100});
         const client=await Client.connect(SPACE_ID);
         setProgress(18,'Uploading to AI...');
         const gradioMode=['stems','bass','drums'].includes(selectedMode)?'all stems':'vocals only';
-        const result=await client.predict("/predict",{audio_file:selectedFile,mode:gradioMode});
+
+        // FIX 3: Wrap predict in a 3-minute timeout so it never silently hangs
+        const result = await Promise.race([
+          client.predict("/predict", {audio_file: selectedFile, mode: gradioMode}),
+          new Promise((_, reject) =>
+            setTimeout(() =>
+              reject(new Error('AI took too long (3 min timeout). The space may be waking up — wait 30 seconds and try again.')),
+              180000
+            )
+          )
+        ]);
+
         clearInterval(fakeTimer);
         setProgress(90,'Loading your tracks...');
         const stems=await buildStemsFromResult(result.data);
@@ -703,9 +680,21 @@
         },500);
       } catch(err) {
         clearInterval(fakeTimer);
-        console.error(err);
-        const m=err.message||String(err);
-        showError(m.includes('503')||m.includes('sleep')?'The AI is waking up — wait 30 seconds and try again.':m.includes('connect')||m.includes('fetch')?'Could not reach AI. Check your internet.':'⚠ '+m);
+        console.error('[STEMIX error]', err);
+        const m = err.message || String(err);
+        let msg;
+        if(m.includes('timeout') || m.includes('took too long')) {
+          msg = '⏱ ' + m;
+        } else if(m.includes('503') || m.includes('sleep')) {
+          msg = '💤 The AI is waking up — wait 30 seconds and try again.';
+        } else if(m.includes('connect') || m.includes('fetch') || m.includes('NetworkError')) {
+          msg = '🌐 Could not reach AI. Check your internet connection.';
+        } else if(m.includes('No audio')) {
+          msg = '🔇 ' + m;
+        } else {
+          msg = '⚠ ' + m;
+        }
+        showError(msg);
         document.getElementById('progressSection').classList.remove('visible');
         document.getElementById('processBtn').disabled=false;
       }
@@ -715,8 +704,8 @@
       if(p<25)return'Uploading song to AI...';
       if(p<45)return'AI separating vocals from instruments...';
       if(p<65)return'Cleaning up stems...';
-      if(p<82)return'Almost done — final pass...';
-      return'Finishing up...';
+      if(p<80)return'Almost done — final pass...';
+      return'Waiting for AI response...';
     }
 
     function showError(msg){const b=document.getElementById('errorBox');b.textContent=msg;b.classList.add('visible');}
@@ -735,20 +724,35 @@
         {name:'Drums',       icon:'🥁',desc:'Drums and percussion', track:null},
       ];
       const stems=[];
+
+      // FIX 4: Log what came back so you can see exactly what the AI returned
+      console.log('[STEMIX] Raw result data:', data);
+
       for(let i=0;i<data.length;i++){
-        const item=data[i]; if(!item) continue;
+        const item=data[i]; if(!item) { console.warn('[STEMIX] Item',i,'is null/undefined'); continue; }
+
         const fileUrl=item.url||(item.path?`https://micln-mec.hf.space/file=${item.path}`:null);
-        if(!fileUrl) continue;
+        if(!fileUrl) { console.warn('[STEMIX] Item',i,'has no URL or path:', item); continue; }
+
+        setProgress(88 + Math.min(i, 4), `Loading stem ${i+1} of ${data.length}...`);
+
         try{
           const res=await fetch(fileUrl);
+          if(!res.ok) throw new Error(`HTTP ${res.status} fetching stem ${i}`);
           const arrBuf=await res.arrayBuffer();
+          if(!arrBuf.byteLength) throw new Error(`Stem ${i} returned 0 bytes`);
+          console.log('[STEMIX] Stem',i,'fetched —',arrBuf.byteLength,'bytes');
           const audBuf=await audioCtx.decodeAudioData(arrBuf.slice(0));
           const blob=new Blob([arrBuf],{type:'audio/mpeg'});
           const url=URL.createObjectURL(blob);
           stems.push({...labels[i],buffer:audBuf,blob,url,arrBuf});
-        }catch(e){console.warn('Stem skip',i,e.message);}
+        }catch(e){
+          // FIX 5: Log individual stem errors clearly — don't swallow them silently
+          console.error('[STEMIX] Stem',i,'failed:', e.message);
+        }
       }
-      if(!stems.length) throw new Error('No audio came back. Please try again.');
+
+      if(!stems.length) throw new Error('No audio came back from the AI. Check the browser console for details, then try again.');
       return stems;
     }
 
@@ -764,7 +768,7 @@
           await uploadBytes(sRef,stem.arrBuf,{contentType:'audio/mpeg'});
           const dlURL=await getDownloadURL(sRef);
           stemRefs.push({name:stem.name,icon:stem.icon,desc:stem.desc,url:dlURL,path});
-        }catch(e){console.warn('Upload fail',stem.name,e);}
+        }catch(e){console.warn('[STEMIX] Upload fail',stem.name,e);}
       }
       if(stemRefs.length>0){
         await addDoc(collection(db,'history'),{
@@ -781,31 +785,23 @@
       const filterBar=document.getElementById('historyFilterBar');
       loading.style.display='block';
       list.innerHTML=''; allHistoryDocs=[];
-
       try{
         let q;
         if(isHost){
-          // Host sees everyone's history
           q=query(collection(db,'history'),orderBy('date','desc'));
         } else {
-          // Normal user sees only their own
           q=query(collection(db,'history'),where('username','==',currentUser),orderBy('date','desc'));
         }
         const snap=await getDocs(q);
         loading.style.display='none';
-
         if(snap.empty){
           list.innerHTML=`<div class="history-empty"><span class="big-icon">🎵</span>${isHost?'No history found for any user yet.':'No history yet — process your first song and it appears here!'}</div>`;
           filterBar.style.display='none';
           return;
         }
-
         filterBar.style.display='flex';
-        snap.forEach(docSnap=>{
-          allHistoryDocs.push({id:docSnap.id, data:docSnap.data()});
-        });
+        snap.forEach(docSnap=>{ allHistoryDocs.push({id:docSnap.id, data:docSnap.data()}); });
         renderHistoryCards(allHistoryDocs);
-
       }catch(e){
         loading.style.display='none';
         list.innerHTML=`<div class="history-empty">Could not load history. Check Firebase settings.</div>`;
@@ -855,7 +851,6 @@
 
     // ── FIREBASE DELETE ───────────────────────────────
     async function deleteHistory(docId,jobId,username,btn) {
-      // Non-host can only delete their own
       if(!isHost && username!==currentUser){alert('You can only delete your own history.');return;}
       btn.textContent='Deleting...';
       try{
