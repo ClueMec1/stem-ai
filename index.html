@@ -659,8 +659,8 @@
           client.predict("/predict", {audio_file: selectedFile, mode: gradioMode}),
           new Promise((_, reject) =>
             setTimeout(() =>
-              reject(new Error('AI took too long (3 min timeout). The space may be waking up — wait 30 seconds and try again.')),
-              180000
+              reject(new Error('AI took too long (8 min timeout). The space may be overloaded — wait 30 seconds and try again.')),
+              480000
             )
           )
         ]);
