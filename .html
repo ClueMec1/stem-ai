@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>STEMIX — AI Vocal Remover</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --neon: #00ff41;
+      --neon-dim: #00cc33;
+      --neon-glow: 0 0 8px #00ff41, 0 0 20px #00ff4188, 0 0 40px #00ff4144;
+      --neon-glow-strong: 0 0 10px #00ff41, 0 0 30px #00ff41aa, 0 0 60px #00ff4166, 0 0 100px #00ff4133;
+      --bg: #000;
+      --bg3: #0a120a;
+      --text: #b0ffb0;
+      --text-dim: #4a7a4a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Share Tech Mono', monospace; min-height: 100vh; overflow-x: hidden; }
+    body::before { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,65,0.015) 2px,rgba(0,255,65,0.015) 4px); pointer-events:none; z-index:9999; }
+    body::after { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(0,255,65,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,65,0.04) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; }
+
+    .container { position:relative; z-index:1; max-width:920px; margin:0 auto; padding:40px 20px 100px; }
+    header { text-align:center; margin-bottom:44px; }
+    .logo { font-family:'Orbitron',monospace; font-size:clamp(2.5rem,8vw,5rem); font-weight:900; color:var(--neon); text-shadow:var(--neon-glow-strong); letter-spacing:0.2em; animation:flicker 8s infinite; }
+    .logo span { color:#fff; text-shadow:0 0 10px #fff,0 0 30px #00ff4188; }
+    .tagline { font-size:0.75rem; color:var(--text-dim); letter-spacing:0.4em; margin-top:8px; text-transform:uppercase; }
+    @keyframes flicker { 0%,95%,100%{opacity:1}96%{opacity:.85}97%{opacity:1}98%{opacity:.7}99%{opacity:1} }
+
+    /* UPLOAD */
+    .upload-zone { border:1px solid var(--neon-dim); box-shadow:var(--neon-glow),inset 0 0 30px rgba(0,255,65,0.03); border-radius:4px; padding:55px 40px; text-align:center; cursor:pointer; transition:all 0.3s; margin-bottom:24px; position:relative; overflow:hidden; }
+    .upload-zone:hover,.upload-zone.drag-over { background:rgba(0,255,65,0.03); box-shadow:var(--neon-glow-strong),inset 0 0 60px rgba(0,255,65,0.05); }
+    .upload-icon { font-size:2.8rem; margin-bottom:14px; display:block; filter:drop-shadow(0 0 8px var(--neon)); }
+    .upload-zone h2 { font-family:'Orbitron',monospace; font-size:1rem; color:var(--neon); text-shadow:var(--neon-glow); margin-bottom:8px; letter-spacing:0.15em; }
+    .upload-zone p { font-size:0.72rem; color:var(--text-dim); letter-spacing:0.1em; }
+    #fileInput { display:none; }
+
+    /* FILE INFO */
+    .file-info { display:none; background:var(--bg3); border:1px solid rgba(0,255,65,0.2); border-radius:3px; padding:14px 18px; margin-bottom:18px; font-size:0.72rem; color:var(--text-dim); align-items:center; gap:12px; }
+    .file-info.visible { display:flex; }
+    .file-badge { background:var(--neon); color:#000; font-family:'Orbitron',monospace; font-size:0.5rem; font-weight:700; padding:3px 7px; border-radius:2px; }
+    .file-name { flex:1; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+    /* MODE */
+    .section-label { font-family:'Orbitron',monospace; font-size:0.6rem; letter-spacing:0.3em; color:var(--text-dim); text-transform:uppercase; margin-bottom:10px; }
+    .mode-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:20px; }
+    .mode-btn { background:transparent; border:1px solid var(--neon-dim); box-shadow:var(--neon-glow); color:var(--text); font-family:'Orbitron',monospace; font-size:0.58rem; letter-spacing:0.12em; padding:13px 8px; cursor:pointer; border-radius:3px; transition:all 0.2s; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; gap:5px; }
+    .mode-btn .mode-icon { font-size:1.3rem; }
+    .mode-btn:hover,.mode-btn.active { background:rgba(0,255,65,0.08); border-color:var(--neon); color:var(--neon); box-shadow:var(--neon-glow-strong); text-shadow:0 0 8px var(--neon); }
+
+    /* PROCESS BTN */
+    .process-btn { width:100%; background:transparent; border:2px solid var(--neon); box-shadow:var(--neon-glow-strong); color:var(--neon); font-family:'Orbitron',monospace; font-size:0.85rem; font-weight:700; letter-spacing:0.3em; padding:20px; cursor:pointer; border-radius:3px; text-transform:uppercase; transition:all 0.2s; text-shadow:var(--neon-glow); margin-bottom:28px; position:relative; overflow:hidden; }
+    .process-btn::after { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(0,255,65,0.12),transparent); transition:left 0.5s; }
+    .process-btn:hover::after { left:100%; }
+    .process-btn:hover { background:rgba(0,255,65,0.08); }
+    .process-btn:disabled { opacity:0.3; cursor:not-allowed; box-shadow:none; }
+
+    /* PROGRESS */
+    .progress-section { display:none; margin-bottom:28px; }
+    .progress-section.visible { display:block; }
+    .progress-label { font-size:0.62rem; letter-spacing:0.28em; color:var(--text-dim); margin-bottom:8px; display:flex; justify-content:space-between; }
+    .progress-bar-wrap { background:rgba(0,255,65,0.05); border:1px solid rgba(0,255,65,0.2); border-radius:2px; height:10px; overflow:hidden; }
+    .progress-bar { height:100%; background:linear-gradient(90deg,var(--neon-dim),var(--neon)); box-shadow:0 0 10px var(--neon),0 0 20px var(--neon); width:0%; transition:width 0.6s ease; border-radius:2px; }
+    .status-text { font-size:0.68rem; color:var(--neon); text-shadow:0 0 8px var(--neon); margin-top:10px; letter-spacing:0.1em; }
+    .status-text.blink { animation:blink 1s infinite; }
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:.35} }
+
+    /* AI STATUS BADGE */
+    .ai-badge { display:inline-flex; align-items:center; gap:6px; background:rgba(0,255,65,0.06); border:1px solid rgba(0,255,65,0.2); border-radius:20px; padding:5px 12px; font-size:0.58rem; color:var(--text-dim); letter-spacing:0.1em; margin-bottom:20px; }
+    .ai-dot { width:7px; height:7px; border-radius:50%; background:var(--neon); box-shadow:var(--neon-glow); animation:pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(0.8)} }
+
+    /* RESULTS / MIXER */
+    .results { display:none; }
+    .results.visible { display:block; }
+    .results-header { font-family:'Orbitron',monospace; font-size:0.62rem; letter-spacing:0.28em; color:var(--text-dim); text-transform:uppercase; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid rgba(0,255,65,0.15); }
+
+    /* MIXER */
+    .mixer-panel { background:var(--bg3); border:1px solid rgba(0,255,65,0.22); border-radius:4px; padding:22px; margin-bottom:14px; }
+    .mixer-title { font-family:'Orbitron',monospace; font-size:0.65rem; letter-spacing:0.2em; color:var(--neon); text-shadow:0 0 6px var(--neon); margin-bottom:18px; }
+
+    .track-row { display:grid; grid-template-columns:110px 1fr 88px; align-items:center; gap:14px; margin-bottom:16px; }
+    .track-label { font-family:'Orbitron',monospace; font-size:0.54rem; letter-spacing:0.1em; color:var(--neon); display:flex; flex-direction:column; gap:3px; }
+    .track-sub { color:var(--text-dim); font-size:0.5rem; font-family:'Share Tech Mono',monospace; }
+
+    .waveform-wrap { position:relative; height:64px; background:rgba(0,255,65,0.03); border:1px solid rgba(0,255,65,0.1); border-radius:2px; overflow:hidden; cursor:pointer; }
+    canvas.waveform { width:100%; height:100%; display:block; }
+    .playhead { position:absolute; top:0; bottom:0; width:2px; background:rgba(255,255,255,0.9); box-shadow:0 0 6px #fff,0 0 12px #fff; left:0; pointer-events:none; }
+
+    .vol-col { display:flex; flex-direction:column; align-items:center; gap:4px; }
+    .vol-label { font-size:0.52rem; color:var(--text-dim); letter-spacing:0.1em; }
+    .vol-val { font-family:'Orbitron',monospace; font-size:0.58rem; color:var(--neon); text-shadow:0 0 6px var(--neon); }
+    input.vol-slider { -webkit-appearance:none; writing-mode:vertical-lr; direction:rtl; width:6px; height:70px; padding:0; background:rgba(0,255,65,0.15); border-radius:3px; outline:none; margin:0 auto; display:block; cursor:pointer; }
+    input.vol-slider::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--neon); box-shadow:var(--neon-glow); cursor:pointer; }
+    input.vol-slider::-moz-range-thumb { width:14px; height:14px; border-radius:50%; background:var(--neon); box-shadow:var(--neon-glow); cursor:pointer; border:none; }
+
+    /* TRANSPORT */
+    .mixer-controls { display:flex; align-items:center; gap:16px; margin-top:18px; padding-top:16px; border-top:1px solid rgba(0,255,65,0.1); }
+    .big-play-btn { width:58px; height:58px; border-radius:50%; border:2px solid var(--neon); box-shadow:var(--neon-glow-strong); background:transparent; color:var(--neon); font-size:1.4rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0; }
+    .big-play-btn:hover { background:rgba(0,255,65,0.1); }
+    .big-play-btn.playing { border-color:#fff; box-shadow:0 0 10px #fff,0 0 30px rgba(255,255,255,0.3); color:#fff; }
+
+    .scrubber-wrap { flex:1; display:flex; flex-direction:column; gap:6px; }
+    .scrubber { -webkit-appearance:none; width:100%; height:4px; background:rgba(0,255,65,0.15); border-radius:2px; outline:none; cursor:pointer; }
+    .scrubber::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--neon); box-shadow:var(--neon-glow); cursor:pointer; }
+    .scrubber::-moz-range-thumb { width:14px; height:14px; border-radius:50%; background:var(--neon); box-shadow:var(--neon-glow); cursor:pointer; border:none; }
+    .time-row { display:flex; justify-content:space-between; font-size:0.55rem; color:var(--text-dim); }
+    .mixer-time { font-family:'Orbitron',monospace; font-size:0.82rem; color:var(--neon); text-shadow:var(--neon-glow); min-width:52px; text-align:right; }
+
+    /* EXPORT */
+    .export-section { margin-top:20px; padding-top:16px; border-top:1px solid rgba(0,255,65,0.1); }
+    .export-title { font-family:'Orbitron',monospace; font-size:0.6rem; letter-spacing:0.2em; color:var(--text-dim); margin-bottom:12px; }
+    .export-btns { display:flex; gap:10px; flex-wrap:wrap; }
+    .export-btn { flex:1; min-width:130px; background:transparent; border:1px solid var(--neon-dim); box-shadow:var(--neon-glow); color:var(--neon); font-family:'Orbitron',monospace; font-size:0.52rem; letter-spacing:0.12em; padding:12px 8px; cursor:pointer; border-radius:3px; text-transform:uppercase; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.2s; }
+    .export-btn:hover { background:rgba(0,255,65,0.08); box-shadow:var(--neon-glow-strong); }
+    .export-btn.mixed { border-color:var(--neon); border-width:2px; box-shadow:var(--neon-glow-strong); }
+
+    /* STEM CARDS (bass/drums mode) */
+    .stem-card { background:var(--bg3); border:1px solid rgba(0,255,65,0.15); border-radius:3px; padding:14px 18px; margin-bottom:10px; }
+    .stem-top { display:flex; align-items:center; gap:12px; }
+    .stem-icon { font-size:1.4rem; filter:drop-shadow(0 0 4px var(--neon)); }
+    .stem-info { flex:1; }
+    .stem-name { font-family:'Orbitron',monospace; font-size:0.65rem; color:var(--neon); text-shadow:0 0 6px var(--neon); letter-spacing:0.12em; margin-bottom:2px; }
+    .stem-desc { font-size:0.6rem; color:var(--text-dim); }
+    audio { width:100%; height:30px; margin-top:8px; filter:invert(1) hue-rotate(90deg) brightness(0.8); }
+    .dl-btn { background:transparent; border:1px solid var(--neon-dim); box-shadow:var(--neon-glow); color:var(--neon); font-family:'Orbitron',monospace; font-size:0.5rem; letter-spacing:0.12em; padding:7px 12px; cursor:pointer; border-radius:2px; text-transform:uppercase; text-decoration:none; transition:all 0.2s; white-space:nowrap; }
+    .dl-btn:hover { background:rgba(0,255,65,0.08); box-shadow:var(--neon-glow-strong); }
+
+    .reset-btn { background:transparent; border:1px solid rgba(0,255,65,0.2); color:var(--text-dim); font-family:'Share Tech Mono',monospace; font-size:0.62rem; letter-spacing:0.2em; padding:10px 20px; cursor:pointer; border-radius:2px; text-transform:uppercase; margin-top:20px; transition:all 0.2s; }
+    .reset-btn:hover { border-color:var(--neon-dim); color:var(--neon); box-shadow:var(--neon-glow); }
+
+    .error-box { display:none; border:1px solid rgba(255,60,60,0.4); background:rgba(255,60,60,0.05); border-radius:3px; padding:14px 18px; font-size:0.65rem; color:rgba(255,120,120,0.9); line-height:1.7; margin-bottom:16px; }
+    .error-box.visible { display:block; }
+
+    .corner-decor { position:fixed; width:60px; height:60px; opacity:0.4; z-index:2; }
+    .corner-decor.tl { top:12px; left:12px; border-top:1px solid var(--neon); border-left:1px solid var(--neon); }
+    .corner-decor.tr { top:12px; right:12px; border-top:1px solid var(--neon); border-right:1px solid var(--neon); }
+    .corner-decor.bl { bottom:12px; left:12px; border-bottom:1px solid var(--neon); border-left:1px solid var(--neon); }
+    .corner-decor.br { bottom:12px; right:12px; border-bottom:1px solid var(--neon); border-right:1px solid var(--neon); }
+
+    @media(max-width:600px) {
+      .track-row { grid-template-columns:80px 1fr 70px; }
+      .export-btns { flex-direction:column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="corner-decor tl"></div><div class="corner-decor tr"></div>
+  <div class="corner-decor bl"></div><div class="corner-decor br"></div>
+
+  <div class="container">
+    <header>
+      <div class="logo">STEM<span>IX</span></div>
+      <div class="tagline">AI Vocal Remover &amp; Stem Splitter</div>
+    </header>
+
+    <!-- AI status -->
+    <div style="text-align:center; margin-bottom:22px;">
+      <div class="ai-badge">
+        <div class="ai-dot"></div>
+        AI ENGINE ONLINE — Powered by Meta Demucs
+      </div>
+    </div>
+
+    <!-- Upload -->
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+      <span class="upload-icon">⬡</span>
+      <h2>Drop Your Music File Here</h2>
+      <p>MP3 · MP4 · WAV · OGG · FLAC</p>
+      <p style="margin-top:6px;font-size:0.62rem;color:var(--text-dim);">File is sent to the AI for real separation — much better quality</p>
+    </div>
+    <input type="file" id="fileInput" accept=".mp3,.mp4,.wav,.ogg,.flac,audio/*,video/*"/>
+
+    <!-- File badge -->
+    <div class="file-info" id="fileInfo">
+      <span class="file-badge" id="fileBadge">MP3</span>
+      <span class="file-name" id="fileName"></span>
+      <span id="fileSize" style="font-size:0.62rem;"></span>
+    </div>
+
+    <!-- Mode -->
+    <div class="section-label">// Choose What You Want To Do</div>
+    <div class="mode-grid">
+      <button class="mode-btn active" data-mode="vocals" onclick="selectMode(this)"><span class="mode-icon">🎤</span>Remove Vocals</button>
+      <button class="mode-btn" data-mode="instrumental" onclick="selectMode(this)"><span class="mode-icon">🎸</span>Instrumental Only</button>
+      <button class="mode-btn" data-mode="stems" onclick="selectMode(this)"><span class="mode-icon">🎛️</span>Split All Stems</button>
+      <button class="mode-btn" data-mode="bass" onclick="selectMode(this)"><span class="mode-icon">🎵</span>Isolate Bass</button>
+      <button class="mode-btn" data-mode="drums" onclick="selectMode(this)"><span class="mode-icon">🥁</span>Isolate Drums</button>
+    </div>
+
+    <!-- Error box -->
+    <div class="error-box" id="errorBox"></div>
+
+    <!-- Process -->
+    <button class="process-btn" id="processBtn" onclick="processAudio()" disabled>
+      ⬡ &nbsp; Start AI Separation
+    </button>
+
+    <!-- Progress -->
+    <div class="progress-section" id="progressSection">
+      <div class="progress-label">
+        <span id="progressLabel">AI PROCESSING</span>
+        <span id="progressPct">0%</span>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="status-text blink" id="statusText">Sending to AI...</div>
+    </div>
+
+    <!-- Results -->
+    <div class="results" id="results">
+      <div class="results-header">// AI Separation Complete — Mix &amp; Download Below</div>
+
+      <!-- Mixer (vocals / instrumental modes) -->
+      <div id="mixerSection" style="display:none;">
+        <div class="mixer-panel">
+          <div class="mixer-title">⬡ DUAL TRACK MIXER</div>
+
+          <!-- Track A: Instrumental -->
+          <div class="track-row">
+            <div class="track-label">
+              🎸 INSTRUMENTAL
+              <span class="track-sub">Music / No Vocals</span>
+            </div>
+            <div class="waveform-wrap" id="waveformA" onclick="seekClick(event,'A')">
+              <canvas class="waveform" id="canvasA"></canvas>
+              <div class="playhead" id="playheadA"></div>
+            </div>
+            <div class="vol-col">
+              <span class="vol-label">VOL</span>
+              <input type="range" class="vol-slider" id="volA" min="0" max="150" value="100"
+                orient="vertical" oninput="updateVol('A',this.value)"/>
+              <span class="vol-val" id="volAVal">100%</span>
+            </div>
+          </div>
+
+          <!-- Track B: Vocals -->
+          <div class="track-row">
+            <div class="track-label">
+              🎤 VOCALS
+              <span class="track-sub">Isolated Voice</span>
+            </div>
+            <div class="waveform-wrap" id="waveformB" onclick="seekClick(event,'B')">
+              <canvas class="waveform" id="canvasB"></canvas>
+              <div class="playhead" id="playheadB"></div>
+            </div>
+            <div class="vol-col">
+              <span class="vol-label">VOL</span>
+              <input type="range" class="vol-slider" id="volB" min="0" max="150" value="100"
+                orient="vertical" oninput="updateVol('B',this.value)"/>
+              <span class="vol-val" id="volBVal">100%</span>
+            </div>
+          </div>
+
+          <!-- Transport -->
+          <div class="mixer-controls">
+            <button class="big-play-btn" id="playBtn" onclick="togglePlayback()">▶</button>
+            <div class="scrubber-wrap">
+              <input type="range" class="scrubber" id="scrubber" min="0" max="1000" value="0"
+                oninput="scrubTo(this.value)"/>
+              <div class="time-row">
+                <span id="timeCurrent">0:00</span>
+                <span id="timeDuration">0:00</span>
+              </div>
+            </div>
+            <div class="mixer-time" id="mixerTime">0:00</div>
+          </div>
+
+          <!-- Export -->
+          <div class="export-section">
+            <div class="export-title">// DOWNLOAD — at the exact volumes you set above</div>
+            <div class="export-btns">
+              <button class="export-btn mixed" onclick="exportMixed()">⬡ Download Mixed Track</button>
+              <button class="export-btn" id="dlInstrumental">↓ Instrumental Only</button>
+              <button class="export-btn" id="dlVocals">↓ Vocals Only</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Simple stem cards (bass / drums / all stems mode) -->
+      <div id="stemCards"></div>
+
+      <button class="reset-btn" onclick="resetAll()">↺ &nbsp; Process Another Song</button>
+    </div>
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════
+    //  CONFIG — Your Hugging Face Space URL
+    // ═══════════════════════════════════════════
+    const HF_SPACE = 'https://micln-mec.hf.space';
+
+    // ═══════════════════════════════════════════
+    //  STATE
+    // ═══════════════════════════════════════════
+    let selectedFile   = null;
+    let selectedMode   = 'vocals';
+    let audioCtx       = null;
+    let bufferA        = null;  // instrumental
+    let bufferB        = null;  // vocals
+    let sourceA        = null;
+    let sourceB        = null;
+    let gainA          = null;
+    let gainB          = null;
+    let isPlaying      = false;
+    let startTime      = 0;
+    let pauseOffset    = 0;
+    let duration       = 0;
+    let rafId          = null;
+    let volA           = 1.0;
+    let volB           = 1.0;
+
+    // ═══════════════════════════════════════════
+    //  MODE
+    // ═══════════════════════════════════════════
+    function selectMode(btn) {
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedMode = btn.dataset.mode;
+    }
+
+    // ═══════════════════════════════════════════
+    //  FILE HANDLING
+    // ═══════════════════════════════════════════
+    const uploadZone = document.getElementById('uploadZone');
+    const fileInput  = document.getElementById('fileInput');
+
+    uploadZone.addEventListener('dragover',  e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+    uploadZone.addEventListener('drop', e => {
+      e.preventDefault(); uploadZone.classList.remove('drag-over');
+      if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+    function handleFile(file) {
+      selectedFile = file;
+      document.getElementById('fileBadge').textContent = file.name.split('.').pop().toUpperCase();
+      document.getElementById('fileName').textContent   = file.name;
+      document.getElementById('fileSize').textContent   = formatSize(file.size);
+      document.getElementById('fileInfo').classList.add('visible');
+      document.getElementById('processBtn').disabled    = false;
+      document.getElementById('results').classList.remove('visible');
+      document.getElementById('progressSection').classList.remove('visible');
+      document.getElementById('errorBox').classList.remove('visible');
+      stopPlayback();
+    }
+
+    function formatSize(b) {
+      return b < 1048576 ? (b/1024).toFixed(1)+' KB' : (b/1048576).toFixed(1)+' MB';
+    }
+
+    // ═══════════════════════════════════════════
+    //  MAIN PROCESS — calls Hugging Face AI
+    // ═══════════════════════════════════════════
+    async function processAudio() {
+      if (!selectedFile) return;
+
+      document.getElementById('processBtn').disabled = true;
+      document.getElementById('progressSection').classList.add('visible');
+      document.getElementById('results').classList.remove('visible');
+      document.getElementById('errorBox').classList.remove('visible');
+      stopPlayback();
+
+      const statusEl = document.getElementById('statusText');
+      statusEl.className = 'status-text blink';
+      statusEl.style.color = '';
+
+      try {
+        // ── Step 1: Upload file to Hugging Face ──
+        setProgress(8, 'Uploading song to AI...');
+
+        const formData = new FormData();
+        formData.append('files', selectedFile);
+
+        // Upload the file and get a temp path back
+        const uploadRes = await fetch(`${HF_SPACE}/upload`, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!uploadRes.ok) throw new Error('Upload failed. Make sure your Hugging Face Space is running.');
+        const uploadedPaths = await uploadRes.json();
+        const filePath = uploadedPaths[0];
+
+        setProgress(20, 'File received by AI — starting separation...');
+
+        // ── Step 2: Call the Gradio predict endpoint ──
+        const gradioMode = (selectedMode === 'stems' || selectedMode === 'bass' || selectedMode === 'drums')
+          ? 'all stems'
+          : 'vocals only';
+
+        const predictBody = {
+          data: [
+            { path: filePath },
+            gradioMode
+          ]
+        };
+
+        setProgress(30, 'AI is separating your audio — this takes 1 to 3 minutes...');
+
+        // Animate progress while waiting for AI
+        let fakeProgress = 30;
+        const fakeInterval = setInterval(() => {
+          if (fakeProgress < 85) {
+            fakeProgress += (Math.random() * 1.5);
+            setProgress(Math.round(fakeProgress), getAIStatusMessage(fakeProgress));
+          }
+        }, 2000);
+
+        const predictRes = await fetch(`${HF_SPACE}/call/predict`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(predictBody)
+        });
+
+        if (!predictRes.ok) {
+          clearInterval(fakeInterval);
+          throw new Error('AI processing failed. Your Space may be sleeping — try again in 30 seconds.');
+        }
+
+        const { event_id } = await predictRes.json();
+
+        // ── Step 3: Poll for result ──
+        const resultData = await pollForResult(event_id, fakeInterval);
+
+        setProgress(92, 'Building your tracks...');
+
+        // ── Step 4: Load the returned audio files ──
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
+
+        const stems = await loadStemsFromResult(resultData);
+
+        setProgress(100, '✓ AI separation complete!');
+        statusEl.className = 'status-text';
+
+        setTimeout(() => {
+          document.getElementById('progressSection').classList.remove('visible');
+          buildResults(stems);
+          document.getElementById('results').classList.add('visible');
+        }, 600);
+
+      } catch (err) {
+        console.error(err);
+        const box = document.getElementById('errorBox');
+        box.textContent = '⚠ ' + err.message;
+        box.classList.add('visible');
+        document.getElementById('progressSection').classList.remove('visible');
+        document.getElementById('processBtn').disabled = false;
+      }
+    }
+
+    function getAIStatusMessage(pct) {
+      if (pct < 40) return 'AI is analyzing the audio waveform...';
+      if (pct < 55) return 'Separating vocals from instruments...';
+      if (pct < 70) return 'Cleaning up the stems...';
+      if (pct < 82) return 'Almost done — final pass...';
+      return 'Finishing up...';
+    }
+
+    // Poll the Gradio event stream for the result
+    async function pollForResult(eventId, fakeInterval) {
+      const url = `${HF_SPACE}/call/predict/${eventId}`;
+      const maxWait = 300000; // 5 minutes max
+      const start   = Date.now();
+
+      while (Date.now() - start < maxWait) {
+        await sleep(3000);
+        try {
+          const res  = await fetch(url);
+          const text = await res.text();
+
+          // Gradio SSE format: lines starting with "data:"
+          const lines = text.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data:')) {
+              const json = JSON.parse(line.slice(5).trim());
+              if (Array.isArray(json)) {
+                clearInterval(fakeInterval);
+                return json;
+              }
+            }
+          }
+        } catch(e) {
+          // keep polling
+        }
+      }
+      clearInterval(fakeInterval);
+      throw new Error('AI took too long. Please try again with a shorter song.');
+    }
+
+    // Load AudioBuffers from the Gradio result
+    async function loadStemsFromResult(data) {
+      // data is array of 4 outputs: [instrumental, vocals, bass, drums]
+      // Each is either null or { path: "..." } or { url: "..." }
+      const stems = [];
+      const labels = [
+        { name: 'Instrumental', icon: '🎸', desc: 'Music without vocals',       track: 'A' },
+        { name: 'Vocals',       icon: '🎤', desc: 'Isolated vocal track',        track: 'B' },
+        { name: 'Bass',         icon: '🎵', desc: 'Low-end bass track',          track: null },
+        { name: 'Drums',        icon: '🥁', desc: 'Drums and percussion',         track: null },
+      ];
+
+      for (let i = 0; i < data.length; i++) {
+        const item = data[i];
+        if (!item) continue;
+
+        // Gradio returns a path or url
+        const fileUrl = item.url
+          ? item.url
+          : item.path
+            ? `${HF_SPACE}/file=${item.path}`
+            : null;
+
+        if (!fileUrl) continue;
+
+        try {
+          const response  = await fetch(fileUrl);
+          const arrayBuf  = await response.arrayBuffer();
+          const audioBuf  = await audioCtx.decodeAudioData(arrayBuf);
+          const blob      = new Blob([arrayBuf], { type: 'audio/mpeg' });
+          const url       = URL.createObjectURL(blob);
+
+          stems.push({
+            ...labels[i],
+            buffer: audioBuf,
+            blob,
+            url
+          });
+        } catch(e) {
+          console.warn('Could not load stem', i, e);
+        }
+      }
+
+      if (stems.length === 0) throw new Error('No audio came back from the AI. Please try again.');
+      return stems;
+    }
+
+    function setProgress(pct, msg) {
+      document.getElementById('progressBar').style.width  = pct + '%';
+      document.getElementById('progressPct').textContent  = pct + '%';
+      document.getElementById('statusText').textContent   = msg;
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    // ═══════════════════════════════════════════
+    //  BUILD RESULTS
+    // ═══════════════════════════════════════════
+    function buildResults(stems) {
+      const isMixer = ['vocals','instrumental'].includes(selectedMode);
+      document.getElementById('mixerSection').style.display = isMixer ? 'block' : 'none';
+      document.getElementById('stemCards').innerHTML = '';
+
+      if (isMixer) {
+        const stemA = stems.find(s => s.track === 'A');
+        const stemB = stems.find(s => s.track === 'B');
+        if (!stemA || !stemB) {
+          showSimpleCards(stems);
+          return;
+        }
+        bufferA  = stemA.buffer;
+        bufferB  = stemB.buffer;
+        duration = bufferA.duration;
+        document.getElementById('timeDuration').textContent = fmtTime(duration);
+        document.getElementById('scrubber').value = 0;
+        pauseOffset = 0;
+
+        drawWaveform('canvasA', bufferA, '#00ff41');
+        drawWaveform('canvasB', bufferB, '#00cc33');
+
+        const baseName = selectedFile.name.replace(/\.[^.]+$/,'');
+        document.getElementById('dlInstrumental').onclick = () =>
+          downloadBlob(stemA.blob, baseName + '_Instrumental.mp3');
+        document.getElementById('dlVocals').onclick = () =>
+          downloadBlob(stemB.blob, baseName + '_Vocals.mp3');
+
+      } else {
+        showSimpleCards(stems);
+      }
+    }
+
+    function showSimpleCards(stems) {
+      const container = document.getElementById('stemCards');
+      const baseName  = selectedFile.name.replace(/\.[^.]+$/,'');
+      stems.forEach(stem => {
+        const card = document.createElement('div');
+        card.className = 'stem-card';
+        card.innerHTML = `
+          <div class="stem-top">
+            <span class="stem-icon">${stem.icon}</span>
+            <div class="stem-info">
+              <div class="stem-name">${stem.name}</div>
+              <div class="stem-desc">${stem.desc}</div>
+            </div>
+            <a class="dl-btn" href="${stem.url}" download="${baseName}_${stem.name}.mp3">↓ Download</a>
+          </div>
+          <audio controls src="${stem.url}"></audio>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // ═══════════════════════════════════════════
+    //  WAVEFORM DRAWING
+    // ═══════════════════════════════════════════
+    function drawWaveform(canvasId, buffer, color) {
+      const canvas = document.getElementById(canvasId);
+      const dpr    = window.devicePixelRatio || 1;
+      const W      = canvas.parentElement.clientWidth || 500;
+      const H      = 64;
+      canvas.width  = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width  = W + 'px';
+      canvas.style.height = H + 'px';
+
+      const ctx  = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, W, H);
+
+      const data = buffer.getChannelData(0);
+      const step = Math.ceil(data.length / W);
+      const mid  = H / 2;
+
+      // Glow layer
+      ctx.shadowBlur  = 6;
+      ctx.shadowColor = color;
+      ctx.strokeStyle = color;
+      ctx.lineWidth   = 1;
+      ctx.beginPath();
+
+      for (let x = 0; x < W; x++) {
+        let min = 1, max = -1;
+        const base = x * step;
+        for (let j = 0; j < step && base+j < data.length; j++) {
+          const v = data[base+j];
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
+        ctx.moveTo(x, mid + min * mid * 0.92);
+        ctx.lineTo(x, mid + max * mid * 0.92);
+      }
+      ctx.stroke();
+    }
+
+    // ═══════════════════════════════════════════
+    //  PLAYBACK ENGINE
+    // ═══════════════════════════════════════════
+    function togglePlayback() {
+      if (isPlaying) pausePlayback();
+      else           startPlayback();
+    }
+
+    function startPlayback() {
+      if (!bufferA || !bufferB) return;
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      stopNodes();
+
+      gainA = audioCtx.createGain(); gainA.gain.value = volA;
+      gainB = audioCtx.createGain(); gainB.gain.value = volB;
+
+      sourceA = audioCtx.createBufferSource(); sourceA.buffer = bufferA;
+      sourceB = audioCtx.createBufferSource(); sourceB.buffer = bufferB;
+
+      sourceA.connect(gainA); gainA.connect(audioCtx.destination);
+      sourceB.connect(gainB); gainB.connect(audioCtx.destination);
+
+      const offset = Math.min(pauseOffset, duration - 0.05);
+      startTime    = audioCtx.currentTime - offset;
+
+      sourceA.start(0, offset);
+      sourceB.start(0, offset);
+      sourceA.onended = () => { if (isPlaying) onEnded(); };
+
+      isPlaying = true;
+      document.getElementById('playBtn').innerHTML = '⏸';
+      document.getElementById('playBtn').classList.add('playing');
+      animatePlayheads();
+    }
+
+    function pausePlayback() {
+      pauseOffset = audioCtx.currentTime - startTime;
+      stopNodes();
+      isPlaying = false;
+      document.getElementById('playBtn').innerHTML = '▶';
+      document.getElementById('playBtn').classList.remove('playing');
+      cancelAnimationFrame(rafId);
+    }
+
+    function stopPlayback() {
+      stopNodes();
+      isPlaying   = false;
+      pauseOffset = 0;
+      const btn = document.getElementById('playBtn');
+      if (btn) { btn.innerHTML = '▶'; btn.classList.remove('playing'); }
+      cancelAnimationFrame(rafId);
+      setPlayheads(0);
+    }
+
+    function stopNodes() {
+      try { if(sourceA){ sourceA.onended=null; sourceA.stop(); } } catch(e){}
+      try { if(sourceB){ sourceB.stop(); } } catch(e){}
+      sourceA = sourceB = null;
+    }
+
+    function onEnded() {
+      isPlaying   = false;
+      pauseOffset = 0;
+      document.getElementById('playBtn').innerHTML = '▶';
+      document.getElementById('playBtn').classList.remove('playing');
+      cancelAnimationFrame(rafId);
+      setPlayheads(0);
+      document.getElementById('scrubber').value = 0;
+      document.getElementById('timeCurrent').textContent = '0:00';
+      document.getElementById('mixerTime').textContent   = '0:00';
+    }
+
+    function animatePlayheads() {
+      rafId = requestAnimationFrame(() => {
+        if (!isPlaying) return;
+        const elapsed = audioCtx.currentTime - startTime;
+        const frac    = Math.min(elapsed / duration, 1);
+        setPlayheads(frac);
+        document.getElementById('scrubber').value          = Math.round(frac * 1000);
+        document.getElementById('timeCurrent').textContent = fmtTime(elapsed);
+        document.getElementById('mixerTime').textContent   = fmtTime(elapsed);
+        if (frac < 1) animatePlayheads();
+        else onEnded();
+      });
+    }
+
+    function setPlayheads(frac) {
+      ['A','B'].forEach(t => {
+        const wrap = document.getElementById('waveform'+t);
+        const ph   = document.getElementById('playhead'+t);
+        if (wrap && ph) ph.style.left = (frac * wrap.clientWidth) + 'px';
+      });
+    }
+
+    function seekClick(e, track) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const frac = (e.clientX - rect.left) / rect.width;
+      scrubTo(Math.round(frac * 1000));
+      document.getElementById('scrubber').value = Math.round(frac * 1000);
+    }
+
+    function scrubTo(val) {
+      pauseOffset = (val / 1000) * duration;
+      document.getElementById('timeCurrent').textContent = fmtTime(pauseOffset);
+      document.getElementById('mixerTime').textContent   = fmtTime(pauseOffset);
+      setPlayheads(val / 1000);
+      if (isPlaying) startPlayback();
+    }
+
+    function updateVol(track, val) {
+      const g = val / 100;
+      document.getElementById('vol'+track+'Val').textContent = val + '%';
+      if (track === 'A') { volA = g; if (gainA) gainA.gain.value = volA; }
+      else               { volB = g; if (gainB) gainB.gain.value = volB; }
+    }
+
+    function fmtTime(s) {
+      s = Math.max(0, s || 0);
+      const m   = Math.floor(s / 60);
+      const sec = Math.floor(s % 60);
+      return m + ':' + (sec < 10 ? '0' : '') + sec;
+    }
+
+    // ═══════════════════════════════════════════
+    //  EXPORT
+    // ═══════════════════════════════════════════
+    function exportMixed() {
+      if (!bufferA || !bufferB) return;
+      const baseName = selectedFile.name.replace(/\.[^.]+$/,'');
+      const blob     = mixBuffersToWav(bufferA, bufferB, volA, volB);
+      downloadBlob(blob, baseName + '_Mixed.wav');
+    }
+
+    function mixBuffersToWav(bufA, bufB, gA, gB) {
+      const nCh  = Math.max(bufA.numberOfChannels, bufB.numberOfChannels);
+      const ns   = Math.max(bufA.length, bufB.length);
+      const sr   = bufA.sampleRate;
+      const dSz  = ns * nCh * 2;
+      const ab   = new ArrayBuffer(44 + dSz);
+      const v    = new DataView(ab);
+      const ws   = (o,s) => { for(let i=0;i<s.length;i++) v.setUint8(o+i,s.charCodeAt(i)); };
+      ws(0,'RIFF'); v.setUint32(4,36+dSz,true); ws(8,'WAVE'); ws(12,'fmt ');
+      v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,nCh,true);
+      v.setUint32(24,sr,true); v.setUint32(28,sr*nCh*2,true);
+      v.setUint16(32,nCh*2,true); v.setUint16(34,16,true);
+      ws(36,'data'); v.setUint32(40,dSz,true);
+      let off = 44;
+      for (let i = 0; i < ns; i++) {
+        for (let c = 0; c < nCh; c++) {
+          const cA = Math.min(c, bufA.numberOfChannels-1);
+          const cB = Math.min(c, bufB.numberOfChannels-1);
+          const sA = i < bufA.length ? bufA.getChannelData(cA)[i] * gA : 0;
+          const sB = i < bufB.length ? bufB.getChannelData(cB)[i] * gB : 0;
+          const s  = Math.max(-1, Math.min(1, sA + sB));
+          v.setInt16(off, s < 0 ? s*32768 : s*32767, true);
+          off += 2;
+        }
+      }
+      return new Blob([ab], { type: 'audio/wav' });
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a   = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    }
+
+    // ═══════════════════════════════════════════
+    //  RESET
+    // ═══════════════════════════════════════════
+    function resetAll() {
+      stopPlayback();
+      selectedFile = bufferA = bufferB = null;
+      ['fileInfo','results','progressSection','errorBox'].forEach(id =>
+        document.getElementById(id).classList.remove('visible'));
+      document.getElementById('processBtn').disabled    = true;
+      document.getElementById('processBtn').textContent = '⬡   Start AI Separation';
+      document.getElementById('progressBar').style.width = '0%';
+      document.getElementById('statusText').style.color  = '';
+      document.getElementById('stemCards').innerHTML      = '';
+      fileInput.value = '';
+      pauseOffset = 0;
+    }
+  </script>
+</body>
+</html>
