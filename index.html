@@ -987,13 +987,21 @@
           Client.connect(SPACE_ID),
           new Promise((_,r)=>setTimeout(()=>r(new Error('AI took too long to connect. The space may be sleeping — try again in 30 seconds.')), 120000))
         ]);
+
+        // Log available endpoints so we can see the real name in the console
+        try {
+          const apiInfo = await client.view_api();
+          console.log('[STEMIX] Available endpoints:', JSON.stringify(apiInfo, null, 2));
+        } catch(e) {
+          console.warn('[STEMIX] Could not fetch api info:', e);
+        }
         console.log('[STEMIX] Gradio client connected');
 
         setProgress(25, 'Uploading your track...');
         setProgress(40, 'AI is processing your track...');
 
-        // ── Call the predict endpoint with progress streaming ──
-        const resultIterable = client.submit('/predict', [selectedFile, gradioMode]);
+        // ── Call using fn_index 0 (first endpoint) since name is unknown ──
+        const resultIterable = client.submit(0, [selectedFile, gradioMode]);
 
         let result = null;
         for await (const event of resultIterable) {
