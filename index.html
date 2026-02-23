@@ -397,7 +397,10 @@
       </div>
     </div>
 
-    <div class="ad-skip-bar">
+    <div class="ad-skip-bar" id="userSkipBar" style="display:none;">
+      <button class="ad-skip-btn" onclick="userSkipIntro()">⬡ Skip Intro</button>
+    </div>
+    <div class="ad-skip-bar" style="bottom:50px;">
       <button class="ad-skip-btn" onclick="toggleSkipModal()">⬡ Skip (Host only)</button>
     </div>
   </div>
@@ -639,15 +642,22 @@
 
     // ── LOGIN ────────────────────────────────────────
     function doLogin() {
-      const val = document.getElementById('loginInput').value.trim();
-      if (!val) { document.getElementById('loginErr').textContent = 'Please enter a username.'; return; }
-      currentUser = val.toLowerCase().replace(/[^a-z0-9_\-]/g,'');
-      if (!currentUser) { document.getElementById('loginErr').textContent = 'Username can only have letters, numbers, - or _'; return; }
-      document.getElementById('loginOverlay').classList.add('hidden');
-      document.getElementById('displayName').textContent = val;
-      document.getElementById('mainApp').style.display = 'block';
-      checkAndShowAd();
-      warmUpSpace(); // start waking the AI in the background immediately on login
+      try {
+        const val = document.getElementById('loginInput').value.trim();
+        if (!val) { document.getElementById('loginErr').textContent = 'Please enter a username.'; return; }
+        currentUser = val.toLowerCase().replace(/[^a-z0-9_-]/g,'');
+        if (!currentUser) { document.getElementById('loginErr').textContent = 'Username can only contain letters, numbers, - or _'; return; }
+        // Hide login, show app
+        document.getElementById('loginOverlay').classList.add('hidden');
+        document.getElementById('displayName').textContent = val;
+        document.getElementById('mainApp').style.display = 'block';
+        // Show intro animation then warm up space
+        try { checkAndShowAd(); } catch(e) { console.error('Ad error:', e); adWatched = true; }
+        try { warmUpSpace(); }    catch(e) { console.error('Warmup error:', e); }
+      } catch(e) {
+        console.error('Login error:', e);
+        document.getElementById('loginErr').textContent = 'Error: ' + e.message;
+      }
     }
 
     // ── BACKGROUND WARM-UP ───────────────────────────
@@ -719,14 +729,29 @@
     }
 
     function checkAndShowAd() {
-      // Always show the intro animation on login (it warms up the space while playing)
       if (adWatched || isHost) return;
       showAd();
     }
 
     function showAd() {
-      document.getElementById('adOverlay').classList.remove('hidden');
-      startIntroAnimation();
+      try {
+        document.getElementById('adOverlay').classList.remove('hidden');
+        setTimeout(() => {
+          try {
+            startIntroAnimation();
+          } catch(e) {
+            console.error('[STEMIX] Intro animation error:', e);
+            // If animation crashes, just auto-dismiss after 3 seconds
+            setTimeout(() => {
+              adWatched = true;
+              document.getElementById('adOverlay').classList.add('hidden');
+            }, 3000);
+          }
+        }, 100); // small delay so overlay is visible/rendered before canvas draws
+      } catch(e) {
+        console.error('[STEMIX] showAd error:', e);
+        adWatched = true; // skip broken ad gracefully
+      }
     }
 
     function startIntroAnimation() {
@@ -831,7 +856,16 @@
       // "Presented by" fades in at 14 seconds
       setTimeout(()=>{ document.getElementById('introPresentedWrap').classList.add('show'); },14000);
 
+      // Show user skip button after 5 seconds
+      setTimeout(()=>{ document.getElementById('userSkipBar').style.display='block'; }, 5000);
+
       setTimeout(()=>requestAnimationFrame(introTick),2500);
+    }
+
+    function userSkipIntro() {
+      adWatched = true;
+      document.getElementById('adOverlay').classList.add('hidden');
+      document.getElementById('userSkipBar').style.display = 'none';
     }
 
     // ── AD SKIP ──────────────────────────────────────
