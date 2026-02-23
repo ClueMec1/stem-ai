@@ -347,9 +347,8 @@
     <div class="modal">
       <div class="modal-title">STEM<span style="color:#fff">IX</span></div>
       <div class="modal-sub">Enter your username to get started.<br/>Your history is saved privately under your name.</div>
-      <input class="neon-input" id="loginInput" type="text" placeholder="Your username" maxlength="30"
-        onkeydown="if(event.key==='Enter') doLogin()"/>
-      <button class="modal-btn" onclick="doLogin()">Enter STEMIX</button>
+      <input class="neon-input" id="loginInput" type="text" placeholder="Your username" maxlength="30"/>
+      <button class="modal-btn" id="loginBtn">Enter STEMIX</button>
       <div class="modal-err" id="loginErr"></div>
     </div>
   </div>
@@ -398,17 +397,16 @@
     </div>
 
     <div class="ad-skip-bar" id="userSkipBar" style="display:none;">
-      <button class="ad-skip-btn" onclick="userSkipIntro()">⬡ Skip Intro</button>
+      <button class="ad-skip-btn" id="userSkipBtn">⬡ Skip Intro</button>
     </div>
     <div class="ad-skip-bar" style="bottom:50px;">
-      <button class="ad-skip-btn" onclick="toggleSkipModal()">⬡ Skip (Host only)</button>
+      <button class="ad-skip-btn" id="hostSkipBtn">⬡ Skip (Host only)</button>
     </div>
   </div>
 
   <div class="skip-modal" id="skipModal">
-    <input type="password" id="skipPassInput" placeholder="Host password" maxlength="20"
-      onkeydown="if(event.key==='Enter') trySkip()"/>
-    <button onclick="trySkip()">Skip Ad</button>
+    <input type="password" id="skipPassInput" placeholder="Host password" maxlength="20"/>
+    <button id="skipBtn">Skip Ad</button>
     <div class="skip-err" id="skipErr"></div>
   </div>
 
@@ -417,12 +415,10 @@
       <div class="modal-title" style="color:#ff6b00;text-shadow:0 0 12px #ff6b00;">HOST MODE</div>
       <div class="modal-sub">Enter the host password to unlock admin controls.</div>
       <input class="neon-input" id="hostPassInput" type="password" placeholder="Host password" maxlength="20"
-        style="border-color:rgba(255,107,0,0.4);color:#ff6b00;"
-        onkeydown="if(event.key==='Enter') tryHostUnlock()"/>
-      <button class="modal-btn" style="border-color:#ff6b00;color:#ff6b00;text-shadow:0 0 8px #ff6b00;"
-        onclick="tryHostUnlock()">Unlock Host Mode</button>
+        style="border-color:rgba(255,107,0,0.4);color:#ff6b00;"/>
+      <button class="modal-btn" id="hostUnlockBtn" style="border-color:#ff6b00;color:#ff6b00;text-shadow:0 0 8px #ff6b00;">Unlock Host Mode</button>
       <div class="modal-err" id="hostErr"></div>
-      <button style="background:transparent;border:none;color:var(--text-dim);font-size:0.58rem;margin-top:14px;cursor:pointer;" onclick="closeHostOverlay()">Cancel</button>
+      <button id="hostCancelBtn" style="background:transparent;border:none;color:var(--text-dim);font-size:0.58rem;margin-top:14px;cursor:pointer;">Cancel</button>
     </div>
   </div>
 
@@ -435,14 +431,11 @@
     <div class="top-bar">
       <div class="user-pill">
         👤 Logged in as <span class="uname" id="displayName"></span>
-        <button class="logout-btn" onclick="doLogout()">Log out</button>
+        <button class="logout-btn" id="logoutBtn">Log out</button>
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
         <div class="ai-badge"><div class="ai-dot"></div>AI ENGINE ONLINE</div>
-        <button id="hostModeBtn" style="background:transparent;border:1px solid rgba(255,107,0,0.3);color:rgba(255,107,0,0.6);font-family:'Orbitron',monospace;font-size:0.5rem;letter-spacing:0.12em;padding:6px 12px;cursor:pointer;border-radius:2px;text-transform:uppercase;transition:all 0.2s;"
-          onmouseover="this.style.borderColor='#ff6b00';this.style.color='#ff6b00';"
-          onmouseout="this.style.borderColor='rgba(255,107,0,0.3)';this.style.color='rgba(255,107,0,0.6)';"
-          onclick="openHostOverlay()">⬡ Host Mode</button>
+        <button id="hostModeBtn" style="background:transparent;border:1px solid rgba(255,107,0,0.3);color:rgba(255,107,0,0.6);font-family:'Orbitron',monospace;font-size:0.5rem;letter-spacing:0.12em;padding:6px 12px;cursor:pointer;border-radius:2px;text-transform:uppercase;transition:all 0.2s;">⬡ Host Mode</button>
       </div>
     </div>
 
@@ -452,27 +445,27 @@
         <span class="host-label">Ad System</span>
         <div class="toggle-wrap">
           <label class="toggle">
-            <input type="checkbox" id="adToggle" onchange="saveAdSettings()"/>
+            <input type="checkbox" id="adToggle"/>
             <span class="toggle-slider"></span>
           </label>
           <span class="toggle-label" id="adToggleLabel">OFF</span>
         </div>
       </div>
-      <div class="ad-upload-area" onclick="document.getElementById('adFileInput').click()">
+      <div class="ad-upload-area" id="adUploadArea">
         <p>📁 Click to upload ad video or audio file</p>
         <div class="ad-current" id="adCurrentFile">No ad uploaded yet</div>
       </div>
-      <input type="file" id="adFileInput" accept="video/*,audio/*" onchange="handleAdUpload(this)"/>
-      <button class="host-exit-btn" onclick="exitHostMode()">Exit Host Mode</button>
+      <input type="file" id="adFileInput" accept="video/*,audio/*"/>
+      <button class="host-exit-btn" id="hostExitBtn">Exit Host Mode</button>
     </div>
 
     <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('process',this)">⬡ &nbsp;Process Song</button>
-      <button class="tab-btn"        onclick="switchTab('history',this)">🔥 &nbsp;History</button>
+      <button class="tab-btn active" id="tabProcess">⬡ &nbsp;Process Song</button>
+      <button class="tab-btn"        id="tabHistory">🔥 &nbsp;History</button>
     </div>
 
     <div class="tab-panel active" id="tab-process">
-      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+      <div class="upload-zone" id="uploadZone">
         <span class="upload-icon">⬡</span>
         <h2>Drop Your Music File Here</h2>
         <p>MP3 · MP4 · WAV · OGG · FLAC</p>
@@ -488,16 +481,16 @@
 
       <div class="section-label">// Choose What You Want To Do</div>
       <div class="mode-grid">
-        <button class="mode-btn active" data-mode="vocals"       onclick="selectMode(this)"><span class="mode-icon">🎤</span>Remove Vocals</button>
-        <button class="mode-btn"        data-mode="instrumental" onclick="selectMode(this)"><span class="mode-icon">🎸</span>Instrumental Only</button>
-        <button class="mode-btn"        data-mode="stems"        onclick="selectMode(this)"><span class="mode-icon">🎛️</span>Split All Stems</button>
-        <button class="mode-btn"        data-mode="bass"         onclick="selectMode(this)"><span class="mode-icon">🎵</span>Isolate Bass</button>
-        <button class="mode-btn"        data-mode="drums"        onclick="selectMode(this)"><span class="mode-icon">🥁</span>Isolate Drums</button>
+        <button class="mode-btn active" data-mode="vocals"      ><span class="mode-icon">🎤</span>Remove Vocals</button>
+        <button class="mode-btn"        data-mode="instrumental"><span class="mode-icon">🎸</span>Instrumental Only</button>
+        <button class="mode-btn"        data-mode="stems"       ><span class="mode-icon">🎛️</span>Split All Stems</button>
+        <button class="mode-btn"        data-mode="bass"        ><span class="mode-icon">🎵</span>Isolate Bass</button>
+        <button class="mode-btn"        data-mode="drums"       ><span class="mode-icon">🥁</span>Isolate Drums</button>
       </div>
 
       <div class="error-box" id="errorBox"></div>
 
-      <button class="process-btn" id="processBtn" onclick="processAudio()" disabled>
+      <button class="process-btn" id="processBtn" disabled>
         ⬡ &nbsp; Start AI Separation
       </button>
 
@@ -516,32 +509,32 @@
             <div class="mixer-title">⬡ DUAL TRACK MIXER</div>
             <div class="track-row">
               <div class="track-label">🎸 INSTRUMENTAL<span class="track-sub">Music / No Vocals</span></div>
-              <div class="waveform-wrap" id="waveformA" onclick="seekClick(event,'A')">
+              <div class="waveform-wrap" id="waveformA">
                 <canvas class="waveform" id="canvasA"></canvas>
                 <div class="playhead" id="playheadA"></div>
               </div>
               <div class="vol-col">
                 <span class="vol-label">VOL</span>
-                <input type="range" class="vol-slider" id="volA" min="0" max="150" value="100" orient="vertical" oninput="updateVol('A',this.value)"/>
+                <input type="range" class="vol-slider" id="volA" min="0" max="150" value="100" orient="vertical"/>
                 <span class="vol-val" id="volAVal">100%</span>
               </div>
             </div>
             <div class="track-row">
               <div class="track-label">🎤 VOCALS<span class="track-sub">Isolated Voice</span></div>
-              <div class="waveform-wrap" id="waveformB" onclick="seekClick(event,'B')">
+              <div class="waveform-wrap" id="waveformB">
                 <canvas class="waveform" id="canvasB"></canvas>
                 <div class="playhead" id="playheadB"></div>
               </div>
               <div class="vol-col">
                 <span class="vol-label">VOL</span>
-                <input type="range" class="vol-slider" id="volB" min="0" max="150" value="100" orient="vertical" oninput="updateVol('B',this.value)"/>
+                <input type="range" class="vol-slider" id="volB" min="0" max="150" value="100" orient="vertical"/>
                 <span class="vol-val" id="volBVal">100%</span>
               </div>
             </div>
             <div class="mixer-controls">
-              <button class="big-play-btn" id="playBtn" onclick="togglePlayback()">▶</button>
+              <button class="big-play-btn" id="playBtn">▶</button>
               <div class="scrubber-wrap">
-                <input type="range" class="scrubber" id="scrubber" min="0" max="1000" value="0" oninput="scrubTo(this.value)"/>
+                <input type="range" class="scrubber" id="scrubber" min="0" max="1000" value="0"/>
                 <div class="time-row"><span id="timeCurrent">0:00</span><span id="timeDuration">0:00</span></div>
               </div>
               <div class="mixer-time" id="mixerTime">0:00</div>
@@ -549,7 +542,7 @@
             <div class="export-section">
               <div class="export-title">// DOWNLOAD — at the exact volumes you set above</div>
               <div class="export-btns">
-                <button class="export-btn mixed" onclick="exportMixed()">⬡ Download Mixed Track</button>
+                <button class="export-btn mixed" id="exportMixedBtn">⬡ Download Mixed Track</button>
                 <button class="export-btn" id="dlInstrumental">↓ Instrumental Only</button>
                 <button class="export-btn" id="dlVocals">↓ Vocals Only</button>
               </div>
@@ -557,7 +550,7 @@
           </div>
         </div>
         <div id="stemCards"></div>
-        <button class="reset-btn" onclick="resetAll()">↺ &nbsp; Process Another Song</button>
+        <button class="reset-btn" id="resetBtn">↺ &nbsp; Process Another Song</button>
       </div>
     </div>
 
@@ -565,7 +558,7 @@
       <div class="history-loading" id="historyLoading" style="display:none;">Loading history...</div>
       <div class="history-filter" id="historyFilterBar" style="display:none;">
         <span class="filter-label">Search:</span>
-        <input class="filter-input" id="historySearch" placeholder="Song name..." oninput="filterHistory()"/>
+        <input class="filter-input" id="historySearch" placeholder="Song name..."/>
       </div>
       <div id="historyList"></div>
     </div>
@@ -614,31 +607,64 @@
     let volA = 1.0, volB = 1.0;
     let allHistoryDocs = [];
 
-    // ── EXPOSE TO HTML ───────────────────────────────
-    window.doLogin         = doLogin;
-    window.doLogout        = doLogout;
-    window.openHostOverlay = openHostOverlay;
-    window.closeHostOverlay= closeHostOverlay;
-    window.tryHostUnlock   = tryHostUnlock;
-    window.exitHostMode    = exitHostMode;
-    window.toggleSkipModal = toggleSkipModal;
-    window.trySkip         = trySkip;
-    window.handleAdUpload  = handleAdUpload;
-    window.saveAdSettings  = saveAdSettings;
-    window.selectMode      = btn => {
-      document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active'); selectedMode = btn.dataset.mode;
-    };
-    window.processAudio    = processAudio;
-    window.togglePlayback  = () => isPlaying ? pausePlayback() : startPlayback();
-    window.updateVol       = updateVol;
-    window.scrubTo         = scrubTo;
-    window.seekClick       = seekClick;
-    window.exportMixed     = exportMixed;
-    window.resetAll        = resetAll;
-    window.switchTab       = switchTab;
-    window.filterHistory   = filterHistory;
-    window.deleteHistory   = deleteHistory;
+    // ── WIRE UP ALL EVENT LISTENERS ──────────────────
+    // deleteHistory is called from dynamic innerHTML so must stay on window
+    window.deleteHistory = deleteHistory;
+
+    // Login
+    document.getElementById('loginBtn').addEventListener('click', doLogin);
+    document.getElementById('loginInput').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+    // Logout
+    document.getElementById('logoutBtn').addEventListener('click', doLogout);
+
+    // Host mode
+    const hostModeBtn = document.getElementById('hostModeBtn');
+    hostModeBtn.addEventListener('click', openHostOverlay);
+    hostModeBtn.addEventListener('mouseover', () => { hostModeBtn.style.borderColor='#ff6b00'; hostModeBtn.style.color='#ff6b00'; });
+    hostModeBtn.addEventListener('mouseout',  () => { hostModeBtn.style.borderColor='rgba(255,107,0,0.3)'; hostModeBtn.style.color='rgba(255,107,0,0.6)'; });
+
+    document.getElementById('hostUnlockBtn').addEventListener('click', tryHostUnlock);
+    document.getElementById('hostPassInput').addEventListener('keydown', e => { if(e.key==='Enter') tryHostUnlock(); });
+    document.getElementById('hostCancelBtn').addEventListener('click', closeHostOverlay);
+    document.getElementById('hostExitBtn').addEventListener('click', exitHostMode);
+
+    // Ad system
+    document.getElementById('adToggle').addEventListener('change', saveAdSettings);
+    document.getElementById('adFileInput').addEventListener('change', function(){ handleAdUpload(this); });
+
+    // Skip intro
+    document.getElementById('userSkipBtn').addEventListener('click', userSkipIntro);
+    document.getElementById('hostSkipBtn').addEventListener('click', toggleSkipModal);
+    document.getElementById('skipBtn').addEventListener('click', trySkip);
+    document.getElementById('skipPassInput').addEventListener('keydown', e => { if(e.key==='Enter') trySkip(); });
+
+    // Tabs
+    document.getElementById('tabProcess').addEventListener('click', function(){ switchTab('process', this); });
+    document.getElementById('tabHistory').addEventListener('click', function(){ switchTab('history', this); });
+
+    // Mode buttons
+    document.querySelectorAll('.mode-btn').forEach(btn => btn.addEventListener('click', function(){ selectMode(this); }));
+
+    // Process
+    document.getElementById('processBtn').addEventListener('click', processAudio);
+
+    // Mixer
+    document.getElementById('playBtn').addEventListener('click', () => isPlaying ? pausePlayback() : startPlayback());
+    document.getElementById('scrubber').addEventListener('input', function(){ scrubTo(this.value); });
+    document.getElementById('waveformA').addEventListener('click', e => seekClick(e,'A'));
+    document.getElementById('waveformB').addEventListener('click', e => seekClick(e,'B'));
+    document.getElementById('volA').addEventListener('input', function(){ updateVol('A', this.value); });
+    document.getElementById('volB').addEventListener('input', function(){ updateVol('B', this.value); });
+    document.getElementById('exportMixedBtn').addEventListener('click', exportMixed);
+    document.getElementById('resetBtn').addEventListener('click', resetAll);
+
+    // History search
+    document.getElementById('historySearch').addEventListener('input', filterHistory);
+
+    // Upload zones
+    document.getElementById('uploadZone').addEventListener('click', () => document.getElementById('fileInput').click());
+    document.getElementById('adUploadArea').addEventListener('click', () => document.getElementById('adFileInput').click());
 
     // ── LOGIN ────────────────────────────────────────
     function doLogin() {
@@ -964,8 +990,6 @@
             new Promise((_,r)=>setTimeout(r,15000))
           ]);
         } catch(e) { /* ignore ping errors, just continue */ }
-
-        const BASE = 'https://micln-mec.hf.space';
 
         // ── STEP 1: Upload the file ──
         setProgress(20, 'Uploading your track...');
