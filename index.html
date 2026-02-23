@@ -650,20 +650,44 @@
 
       try {
         if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100});
-        const client=await Client.connect(SPACE_ID);
-        setProgress(18,'Uploading to AI...');
         const gradioMode=['stems','bass','drums'].includes(selectedMode)?'all stems':'vocals only';
+        const BASE = 'https://micln-mec.hf.space';
 
-        // FIX 3: Wrap predict in a 3-minute timeout so it never silently hangs
-        const result = await Promise.race([
-          client.predict("/predict", {audio_file: selectedFile, mode: gradioMode}),
-          new Promise((_, reject) =>
-            setTimeout(() =>
-              reject(new Error('AI took too long (8 min timeout). The space may be overloaded — wait 30 seconds and try again.')),
-              480000
-            )
-          )
+        // Upload file directly — bypasses the slow Gradio JS client entirely
+        setProgress(18,'Uploading file to AI...');
+        const uploadForm = new FormData();
+        uploadForm.append('files', selectedFile, selectedFile.name);
+        const uploadRes = await Promise.race([
+          fetch(`${BASE}/upload`, {method:'POST', body: uploadForm}),
+          new Promise((_,reject)=>setTimeout(()=>reject(new Error('Upload timed out — check your internet.')),60000))
         ]);
+        if(!uploadRes.ok) throw new Error(`Upload failed: HTTP ${uploadRes.status}`);
+        const uploadedPaths = await uploadRes.json();
+        const uploadedPath = uploadedPaths[0];
+        console.log('[STEMIX] Uploaded:', uploadedPath);
+
+        // Call predict via direct REST (same method HuggingFace uses in the browser)
+        setProgress(35,'File uploaded — AI is processing...');
+        const predictRes = await Promise.race([
+          fetch(`${BASE}/run/predict`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              data: [
+                {path: uploadedPath, orig_name: selectedFile.name, is_file: true},
+                gradioMode
+              ]
+            })
+          }),
+          new Promise((_,reject)=>setTimeout(()=>
+            reject(new Error('AI took too long (8 min). Open https://huggingface.co/spaces/micln/MEC to wake it up first, then retry here.')),
+            480000
+          ))
+        ]);
+        if(!predictRes.ok) throw new Error(`AI failed: HTTP ${predictRes.status}`);
+        const predictJson = await predictRes.json();
+        console.log('[STEMIX] Predict response:', predictJson);
+        const result = { data: predictJson.data || predictJson };
 
         clearInterval(fakeTimer);
         setProgress(90,'Loading your tracks...');
