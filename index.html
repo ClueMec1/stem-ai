@@ -980,93 +980,46 @@
       try {
         if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100});
         const gradioMode=['stems','bass','drums'].includes(selectedMode)?'all stems':'vocals only';
-        const BASE = 'https://micln-mec.hf.space';
 
-        // Step 1: Ping the space first to wake it up before connecting
-        setProgress(10,'Waking up AI space...');
-        try {
-          await Promise.race([
-            fetch(`${BASE}/`, {method:'GET', mode:'no-cors'}),
-            new Promise((_,r)=>setTimeout(r,15000))
-          ]);
-        } catch(e) { /* ignore ping errors, just continue */ }
-
-        // ── STEP 1: Upload the file ──
-        setProgress(20, 'Uploading your track...');
-        const uploadForm = new FormData();
-        uploadForm.append('files', selectedFile, selectedFile.name);
-        const uploadRes = await Promise.race([
-          fetch(`${BASE}/upload?upload_id=${Date.now()}`, {method:'POST', body:uploadForm}),
-          new Promise((_,r)=>setTimeout(()=>r(new Error('Upload timed out — check your internet.')), 90000))
+        // ── Connect via official @gradio/client (handles Gradio 4 API automatically) ──
+        setProgress(10, 'Connecting to AI...');
+        const client = await Promise.race([
+          Client.connect(SPACE_ID),
+          new Promise((_,r)=>setTimeout(()=>r(new Error('AI took too long to connect. The space may be sleeping — try again in 30 seconds.')), 120000))
         ]);
-        if(!uploadRes.ok) throw new Error(`Upload failed: HTTP ${uploadRes.status}`);
-        const uploadJson = await uploadRes.json();
-        const uploadedPath = Array.isArray(uploadJson) ? uploadJson[0] : uploadJson;
-        console.log('[STEMIX] Uploaded path:', uploadedPath);
+        console.log('[STEMIX] Gradio client connected');
 
-        // ── STEP 2: POST to queue/join to get event_id ──
-        setProgress(35, 'Sending to AI queue...');
-        const joinRes = await Promise.race([
-          fetch(`${BASE}/queue/join`, {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-              fn_index: 0,
-              data: [
-                {path: uploadedPath, orig_name: selectedFile.name, is_file: true},
-                gradioMode
-              ],
-              session_hash: Math.random().toString(36).slice(2)
-            })
-          }),
-          new Promise((_,r)=>setTimeout(()=>r(new Error('Queue join timed out.')), 30000))
-        ]);
-        if(!joinRes.ok) throw new Error(`Queue join failed: HTTP ${joinRes.status}`);
-        const joinJson = await joinRes.json();
-        const eventId = joinJson.event_id;
-        console.log('[STEMIX] Event ID:', eventId);
+        setProgress(25, 'Uploading your track...');
+        setProgress(40, 'AI is processing your track...');
 
-        // ── STEP 3: Stream results via SSE ──
-        setProgress(45, 'AI is processing your track...');
-        const result = await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() =>
-            reject(new Error('AI took too long (8 min). Open https://huggingface.co/spaces/micln/MEC to wake the space up, then try again.')),
-            480000
-          );
-          const evtSource = new EventSource(`${BASE}/queue/data?session_hash=${joinJson.session_hash || ''}`);
-          evtSource.onmessage = (e) => {
-            try {
-              const msg = JSON.parse(e.data);
-              console.log('[STEMIX] SSE msg:', msg.msg);
-              if(msg.msg === 'estimation') {
-                const pos = msg.rank || 0;
-                setProgress(45, pos > 0 ? `Queued — position ${pos}, please wait...` : 'AI processing...');
-              }
-              if(msg.msg === 'process_starts') setProgress(55, 'AI separating stems...');
-              if(msg.msg === 'process_generating') setProgress(70, 'AI separating stems...');
-              if(msg.msg === 'process_completed') {
-                clearTimeout(timeout);
-                evtSource.close();
-                resolve({data: msg.output?.data || []});
-              }
-              if(msg.msg === 'queue_full') {
-                clearTimeout(timeout);
-                evtSource.close();
-                reject(new Error('AI queue is full — wait 30 seconds and try again.'));
-              }
-            } catch(err) { /* ignore parse errors */ }
-          };
-          evtSource.onerror = () => {
-            clearTimeout(timeout);
-            evtSource.close();
-            reject(new Error('Lost connection to AI. Try again.'));
-          };
-        });
+        // ── Call the predict endpoint with progress streaming ──
+        const resultIterable = client.submit('/predict', [selectedFile, gradioMode]);
+
+        let result = null;
+        for await (const event of resultIterable) {
+          console.log('[STEMIX] event:', event.type, event);
+          if (event.type === 'status') {
+            const s = event.data;
+            if (s?.queue === true && s?.position != null) {
+              setProgress(42, `Queued — position ${s.position}, please wait...`);
+            } else if (s?.stage === 'generating') {
+              setProgress(70, 'AI separating stems...');
+            }
+          }
+          if (event.type === 'data') {
+            result = event.data;
+          }
+        }
+
+        if (!result) throw new Error('No result returned from AI.');
         console.log('[STEMIX] Result:', result);
+
+        // @gradio/client returns data as array directly (not wrapped in .data)
+        const resultArray = Array.isArray(result) ? result : (result.data ?? []);
 
         clearInterval(fakeTimer);
         setProgress(90,'Loading your tracks...');
-        const stems=await buildStemsFromResult(result.data);
+        const stems=await buildStemsFromResult(resultArray);
         setProgress(95,'Saving to Firebase...');
         await saveToFirebase(stems);
         setProgress(100,'✓ Done! Saved to your history.');
