@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+x<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
@@ -653,41 +653,32 @@
         const gradioMode=['stems','bass','drums'].includes(selectedMode)?'all stems':'vocals only';
         const BASE = 'https://micln-mec.hf.space';
 
-        // Upload file directly — bypasses the slow Gradio JS client entirely
-        setProgress(18,'Uploading file to AI...');
-        const uploadForm = new FormData();
-        uploadForm.append('files', selectedFile, selectedFile.name);
-        const uploadRes = await Promise.race([
-          fetch(`${BASE}/upload`, {method:'POST', body: uploadForm}),
-          new Promise((_,reject)=>setTimeout(()=>reject(new Error('Upload timed out — check your internet.')),60000))
-        ]);
-        if(!uploadRes.ok) throw new Error(`Upload failed: HTTP ${uploadRes.status}`);
-        const uploadedPaths = await uploadRes.json();
-        const uploadedPath = uploadedPaths[0];
-        console.log('[STEMIX] Uploaded:', uploadedPath);
+        // Step 1: Ping the space first to wake it up before connecting
+        setProgress(10,'Waking up AI space...');
+        try {
+          await Promise.race([
+            fetch(`${BASE}/`, {method:'GET', mode:'no-cors'}),
+            new Promise((_,r)=>setTimeout(r,15000))
+          ]);
+        } catch(e) { /* ignore ping errors, just continue */ }
 
-        // Call predict via direct REST (same method HuggingFace uses in the browser)
-        setProgress(35,'File uploaded — AI is processing...');
-        const predictRes = await Promise.race([
-          fetch(`${BASE}/run/predict`, {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-              data: [
-                {path: uploadedPath, orig_name: selectedFile.name, is_file: true},
-                gradioMode
-              ]
-            })
-          }),
+        // Step 2: Connect via Gradio client (proven to work)
+        setProgress(18,'Connecting to AI...');
+        const client = await Promise.race([
+          Client.connect(SPACE_ID),
+          new Promise((_,reject)=>setTimeout(()=>reject(new Error('Could not connect to AI space. It may be down — try again in 1 minute.')),60000))
+        ]);
+
+        // Step 3: Upload and predict with 8 minute timeout
+        setProgress(30,'Uploading your track...');
+        const result = await Promise.race([
+          client.predict("/predict", {audio_file: selectedFile, mode: gradioMode}),
           new Promise((_,reject)=>setTimeout(()=>
-            reject(new Error('AI took too long (8 min). Open https://huggingface.co/spaces/micln/MEC to wake it up first, then retry here.')),
+            reject(new Error('AI took too long (8 min). The space is overloaded — wait 1 minute and try again.')),
             480000
           ))
         ]);
-        if(!predictRes.ok) throw new Error(`AI failed: HTTP ${predictRes.status}`);
-        const predictJson = await predictRes.json();
-        console.log('[STEMIX] Predict response:', predictJson);
-        const result = { data: predictJson.data || predictJson };
+        console.log('[STEMIX] Result:', result);
 
         clearInterval(fakeTimer);
         setProgress(90,'Loading your tracks...');
