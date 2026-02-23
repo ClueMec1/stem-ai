@@ -1,4 +1,4 @@
-x<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
@@ -214,6 +214,129 @@ x<!DOCTYPE html>
       .export-btns { flex-direction:column; }
       .tab-btn { padding:9px 13px; font-size:0.5rem; }
     }
+
+    /* ══ INTRO ANIMATION ══════════════════════════════ */
+    #introBg { position:absolute; inset:0; z-index:0; }
+    .intro-corners { position:absolute; inset:0; z-index:2; pointer-events:none; }
+    .icorner { position:absolute; width:40px; height:40px; opacity:0.5; }
+    .icorner.tl { top:16px; left:16px; border-top:1px solid #00ff41; border-left:1px solid #00ff41; }
+    .icorner.tr { top:16px; right:16px; border-top:1px solid #00ff41; border-right:1px solid #00ff41; }
+    .icorner.bl { bottom:16px; left:16px; border-bottom:1px solid #00ff41; border-left:1px solid #00ff41; }
+    .icorner.br { bottom:16px; right:16px; border-bottom:1px solid #00ff41; border-right:1px solid #00ff41; }
+
+    .intro-scene {
+      position:relative; z-index:3;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      width:100%; padding:20px;
+    }
+
+    .intro-logo-wrap {
+      text-align:center;
+      opacity:0; transform:scale(0.7);
+      animation: introLogoIn 1.2s cubic-bezier(0.16,1,0.3,1) 0.4s forwards;
+    }
+    @keyframes introLogoIn { to { opacity:1; transform:scale(1); } }
+
+    .intro-logo {
+      font-family:'Orbitron',monospace;
+      font-size:clamp(2.5rem,10vw,6rem);
+      font-weight:900; color:#00ff41; letter-spacing:0.25em;
+      text-shadow:0 0 10px #00ff41,0 0 30px #00ff4199,0 0 80px #00ff4144;
+      animation:introLogoPulse 3s ease-in-out 1.6s infinite;
+    }
+    .intro-logo span { color:#fff; text-shadow:0 0 12px #fff,0 0 40px #00ff4188; }
+    @keyframes introLogoPulse {
+      0%,100%{text-shadow:0 0 10px #00ff41,0 0 30px #00ff4199,0 0 80px #00ff4144;}
+      50%{text-shadow:0 0 20px #00ff41,0 0 60px #00ff41cc,0 0 120px #00ff4166;}
+    }
+    .intro-tagline {
+      font-size:clamp(0.45rem,1.8vw,0.7rem); letter-spacing:0.45em; color:#4a7a4a;
+      text-transform:uppercase; text-align:center; margin-top:8px;
+      opacity:0; animation:introFadeUp 1s ease 1.4s forwards;
+    }
+    @keyframes introFadeUp {
+      from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)}
+    }
+
+    .intro-wave-wrap {
+      margin-top:30px; width:min(560px,85vw); height:70px;
+      opacity:0; animation:introFadeUp 1s ease 1.8s forwards;
+    }
+    #introWave { width:100%; height:100%; }
+
+    .intro-presented {
+      margin-top:22px; text-align:center;
+      opacity:0; transition:opacity 1.2s ease;
+    }
+    .intro-presented.show { opacity:1; }
+    .intro-presented-by {
+      font-size:clamp(0.44rem,1.4vw,0.58rem); letter-spacing:0.4em;
+      color:#2a5a2a; text-transform:uppercase; margin-bottom:4px;
+    }
+    .intro-presented-name {
+      font-family:'Orbitron',monospace;
+      font-size:clamp(0.85rem,3vw,1.5rem); font-weight:700;
+      color:#00ff41; letter-spacing:0.2em; text-transform:uppercase;
+      text-shadow:0 0 10px #00ff41,0 0 30px #00ff4166;
+    }
+
+    .intro-seq-wrap {
+      margin-top:22px; width:min(480px,80vw); text-align:left;
+      opacity:0; animation:introFadeUp 1s ease 2.2s forwards;
+    }
+    .intro-seq-line {
+      font-size:clamp(0.44rem,1.3vw,0.6rem); color:#2a5a2a;
+      letter-spacing:0.1em; line-height:2; opacity:0;
+    }
+    .intro-seq-line.active { color:#00ff41; text-shadow:0 0 8px #00ff41; opacity:1; }
+    .intro-seq-line.done   { color:#1a6a1a; opacity:1; }
+
+    .intro-bar-wrap {
+      margin-top:22px; width:min(480px,80vw);
+      opacity:0; animation:introFadeUp 1s ease 2.4s forwards;
+    }
+    .intro-bar-label {
+      display:flex; justify-content:space-between;
+      font-size:0.52rem; color:#2a5a2a; letter-spacing:0.18em; margin-bottom:7px;
+    }
+    .intro-bar-label span:last-child { color:#00ff41; text-shadow:0 0 6px #00ff41; }
+    .intro-bar-outer {
+      height:4px; background:rgba(0,255,65,0.08);
+      border:1px solid rgba(0,255,65,0.2); border-radius:2px; overflow:hidden;
+    }
+    .intro-bar-inner {
+      height:100%; background:linear-gradient(90deg,#00cc33,#00ff41);
+      box-shadow:0 0 10px #00ff41; border-radius:2px; width:0%;
+      transition:width 0.4s ease;
+    }
+
+    .intro-ready {
+      position:absolute; inset:0; z-index:10;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      background:#000; opacity:0; pointer-events:none; transition:opacity 0.8s ease;
+    }
+    .intro-ready.show { opacity:1; pointer-events:all; }
+    .intro-ready-title {
+      font-family:'Orbitron',monospace;
+      font-size:clamp(1.5rem,6vw,3.5rem); font-weight:900; color:#00ff41;
+      text-shadow:0 0 20px #00ff41,0 0 60px #00ff4188; letter-spacing:0.2em;
+      animation:introReadyPulse 1.5s ease-in-out infinite;
+    }
+    @keyframes introReadyPulse { 0%,100%{transform:scale(1)}50%{transform:scale(1.04)} }
+    .intro-ready-sub {
+      font-size:clamp(0.5rem,1.8vw,0.75rem); color:#4a7a4a;
+      letter-spacing:0.28em; margin-top:12px; text-transform:uppercase;
+    }
+    .intro-ready-dots { display:flex; gap:10px; margin-top:26px; }
+    .irdot {
+      width:8px; height:8px; border-radius:50%;
+      background:#00ff41; box-shadow:0 0 8px #00ff41;
+      animation:irdotP 1s ease-in-out infinite;
+    }
+    .irdot:nth-child(2){animation-delay:0.2s}
+    .irdot:nth-child(3){animation-delay:0.4s}
+    @keyframes irdotP{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.3;transform:scale(0.6)}}
+
   </style>
 </head>
 <body>
@@ -231,10 +354,49 @@ x<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- ══ ANIMATED INTRO OVERLAY ══ -->
   <div class="ad-overlay hidden" id="adOverlay">
-    <div class="ad-label">ADVERTISEMENT — Please watch before continuing</div>
-    <div class="ad-media-wrap" id="adMediaWrap"></div>
-    <div class="ad-timer" id="adTimer">Please wait...</div>
+    <canvas id="introBg"></canvas>
+
+    <div class="intro-corners">
+      <div class="icorner tl"></div><div class="icorner tr"></div>
+      <div class="icorner bl"></div><div class="icorner br"></div>
+    </div>
+
+    <div class="intro-scene" id="introScene">
+      <div class="intro-logo-wrap">
+        <div class="intro-logo">STEM<span>IX</span></div>
+        <div class="intro-tagline">AI Vocal Remover &amp; Stem Splitter</div>
+      </div>
+
+      <div class="intro-wave-wrap">
+        <canvas id="introWave"></canvas>
+      </div>
+
+      <div class="intro-presented" id="introPresentedWrap">
+        <div class="intro-presented-by">Presented by</div>
+        <div class="intro-presented-name">Michael Neuman</div>
+      </div>
+
+      <div class="intro-seq-wrap" id="introSeqWrap"></div>
+
+      <div class="intro-bar-wrap">
+        <div class="intro-bar-label">
+          <span>INITIALIZING AI ENGINE</span>
+          <span id="introPctLabel">0%</span>
+        </div>
+        <div class="intro-bar-outer"><div class="intro-bar-inner" id="introBarInner"></div></div>
+      </div>
+    </div>
+
+    <div class="intro-ready" id="introReady">
+      <div class="intro-ready-title">⬡ &nbsp;READY</div>
+      <div class="intro-ready-sub">AI Engine Online — Processing Enabled</div>
+      <div class="intro-ready-dots">
+        <div class="irdot"></div><div class="irdot"></div><div class="irdot"></div>
+      </div>
+    </div>
+
     <div class="ad-skip-bar">
       <button class="ad-skip-btn" onclick="toggleSkipModal()">⬡ Skip (Host only)</button>
     </div>
@@ -485,6 +647,29 @@ x<!DOCTYPE html>
       document.getElementById('displayName').textContent = val;
       document.getElementById('mainApp').style.display = 'block';
       checkAndShowAd();
+      warmUpSpace(); // start waking the AI in the background immediately on login
+    }
+
+    // ── BACKGROUND WARM-UP ───────────────────────────
+    // Called on login so the space is already running by the time user uploads
+    async function warmUpSpace() {
+      try {
+        console.log('[STEMIX] Warming up space in background...');
+        // Ping the space homepage (no-cors so no errors even if blocked)
+        await fetch('https://micln-mec.hf.space/', {method:'GET', mode:'no-cors'});
+        console.log('[STEMIX] Space ping sent.');
+        // Also try to pre-connect the Gradio client silently
+        // Store it so processAudio can reuse it instead of reconnecting
+        window._gradioClient = await Promise.race([
+          Client.connect(SPACE_ID),
+          new Promise((_,r)=>setTimeout(()=>r(new Error('warmup timeout')),90000))
+        ]);
+        console.log('[STEMIX] Space pre-connected and ready!');
+      } catch(e) {
+        // Silent fail — warmup is best-effort, not critical
+        console.log('[STEMIX] Warm-up note:', e.message);
+        window._gradioClient = null;
+      }
     }
 
     function doLogout() {
@@ -536,33 +721,119 @@ x<!DOCTYPE html>
     }
 
     function checkAndShowAd() {
-      if (!adEnabled || !adFileURL || adWatched || isHost) return;
+      // Always show the intro animation on login (it warms up the space while playing)
+      if (adWatched || isHost) return;
       showAd();
     }
 
     function showAd() {
-      const wrap = document.getElementById('adMediaWrap');
-      wrap.innerHTML = '';
-      const el = document.createElement(adFileType === 'video' ? 'video' : 'audio');
-      el.src = adFileURL;
-      el.autoplay = true;
-      el.controls = false;
-      if (adFileType === 'audio') el.controls = true;
-      wrap.appendChild(el);
       document.getElementById('adOverlay').classList.remove('hidden');
-      document.getElementById('adTimer').textContent = 'Please watch the ad...';
-      el.addEventListener('ended', () => {
-        adWatched = true;
-        document.getElementById('adOverlay').classList.add('hidden');
-        document.getElementById('adTimer').textContent = '';
-      });
-      el.addEventListener('timeupdate', () => {
-        const remaining = Math.ceil((el.duration || 0) - el.currentTime);
-        if (!isNaN(remaining) && remaining >= 0) {
-          document.getElementById('adTimer').textContent =
-            remaining > 0 ? `Ad ends in ${remaining}s` : 'Almost done...';
+      startIntroAnimation();
+    }
+
+    function startIntroAnimation() {
+      // ── Grid background ──
+      const bgC = document.getElementById('introBg');
+      const bgX = bgC.getContext('2d');
+      function drawIntroBg() {
+        bgC.width  = window.innerWidth;
+        bgC.height = window.innerHeight;
+        bgX.clearRect(0,0,bgC.width,bgC.height);
+        bgX.strokeStyle = 'rgba(0,255,65,0.04)'; bgX.lineWidth=1;
+        for(let x=0;x<bgC.width;x+=40){bgX.beginPath();bgX.moveTo(x,0);bgX.lineTo(x,bgC.height);bgX.stroke();}
+        for(let y=0;y<bgC.height;y+=40){bgX.beginPath();bgX.moveTo(0,y);bgX.lineTo(bgC.width,y);bgX.stroke();}
+      }
+      drawIntroBg();
+      window.addEventListener('resize', drawIntroBg);
+
+      // ── Waveform ──
+      const wC = document.getElementById('introWave');
+      const wX = wC.getContext('2d');
+      let wPhase = 0;
+      let waveRunning = true;
+      function drawIntroWave() {
+        if(!waveRunning) return;
+        const W = wC.offsetWidth||560, H = wC.offsetHeight||70;
+        const dpr = window.devicePixelRatio||1;
+        wC.width=W*dpr; wC.height=H*dpr;
+        wX.scale(dpr,dpr); wX.clearRect(0,0,W,H);
+        const mid=H/2, bars=80, barW=W/bars;
+        for(let i=0;i<bars;i++){
+          const x=i*barW+barW/2;
+          const t=(i/bars)*Math.PI*6+wPhase;
+          const amp=(Math.sin(t)*0.5+Math.sin(t*2.3+1)*0.3+Math.sin(t*0.7)*0.2)*mid*0.75;
+          const h=Math.max(3,Math.abs(amp));
+          const alpha=0.4+Math.abs(amp/mid)*0.6;
+          wX.fillStyle=`rgba(0,255,65,${alpha})`;
+          wX.shadowBlur=6; wX.shadowColor='#00ff41';
+          wX.fillRect(x-barW*0.35,mid-h,barW*0.7,h*2);
         }
+        wPhase+=0.06;
+        requestAnimationFrame(drawIntroWave);
+      }
+      drawIntroWave();
+
+      // ── Sequence lines ──
+      const LINES = [
+        'Initializing STEMIX core...',
+        'Connecting to AI separation engine...',
+        'Loading neural stem models...',
+        'Calibrating vocal frequency bands...',
+        'Warming up instrument isolation...',
+        'Testing signal pathway integrity...',
+        'Synchronizing audio processing pipeline...',
+        'Verifying stem output quality...',
+        'AI engine fully operational.',
+      ];
+      const seqWrap = document.getElementById('introSeqWrap');
+      seqWrap.innerHTML = '';
+      LINES.forEach((txt,i)=>{
+        const el=document.createElement('div');
+        el.className='intro-seq-line'; el.id='iline'+i;
+        el.textContent='> '+txt; seqWrap.appendChild(el);
       });
+
+      const TOTAL = 28000;
+      const lineTimes = LINES.map((_,i)=>2500+i*(TOTAL*0.85/LINES.length));
+      const lineShown = new Array(LINES.length).fill(false);
+      const introStart = performance.now();
+
+      function introTick() {
+        const elapsed = performance.now()-introStart;
+        const pct = Math.min(100,Math.round((elapsed/TOTAL)*100));
+        document.getElementById('introBarInner').style.width=pct+'%';
+        document.getElementById('introPctLabel').textContent=pct+'%';
+
+        lineTimes.forEach((t,i)=>{
+          if(!lineShown[i]&&elapsed>=t){
+            lineShown[i]=true;
+            const el=document.getElementById('iline'+i);
+            el.classList.add('active');
+            if(i>0){const p=document.getElementById('iline'+(i-1));p.classList.remove('active');p.classList.add('done');}
+          }
+        });
+
+        if(elapsed<TOTAL){ requestAnimationFrame(introTick); }
+        else {
+          waveRunning=false;
+          const last=document.getElementById('iline'+(LINES.length-1));
+          last.classList.remove('active'); last.classList.add('done');
+          setTimeout(()=>{
+            document.getElementById('introReady').classList.add('show');
+            // Auto-dismiss after 2 more seconds
+            setTimeout(()=>{
+              adWatched=true;
+              document.getElementById('adOverlay').classList.add('hidden');
+              document.getElementById('introReady').classList.remove('show');
+            },2000);
+          },300);
+        }
+      }
+
+      // "Presented by" fades in at 14 seconds
+      setTimeout(()=>{ document.getElementById('introPresentedWrap').classList.add('show'); },14000);
+
+      setTimeout(()=>requestAnimationFrame(introTick),2500);
     }
 
     // ── AD SKIP ──────────────────────────────────────
@@ -662,14 +933,22 @@ x<!DOCTYPE html>
           ]);
         } catch(e) { /* ignore ping errors, just continue */ }
 
-        // Step 2: Connect via Gradio client (proven to work)
-        setProgress(18,'Connecting to AI...');
-        const client = await Promise.race([
-          Client.connect(SPACE_ID),
-          new Promise((_,reject)=>setTimeout(()=>reject(new Error('Could not connect to AI space. It may be down — try again in 1 minute.')),60000))
-        ]);
+        // Reuse pre-warmed client from login if available, otherwise connect fresh
+        let client = window._gradioClient;
+        if(client) {
+          console.log('[STEMIX] Reusing pre-warmed client!');
+          setProgress(25,'AI already connected — uploading...');
+        } else {
+          setProgress(18,'Connecting to AI...');
+          client = await Promise.race([
+            Client.connect(SPACE_ID),
+            new Promise((_,reject)=>setTimeout(()=>reject(new Error('Could not connect to AI space. It may be down — try again in 1 minute.')),60000))
+          ]);
+        }
+        // Clear cached client so next job reconnects fresh
+        window._gradioClient = null;
 
-        // Step 3: Upload and predict with 8 minute timeout
+        // Upload and predict with 8 minute timeout
         setProgress(30,'Uploading your track...');
         const result = await Promise.race([
           client.predict("/predict", {audio_file: selectedFile, mode: gradioMode}),
