@@ -655,20 +655,18 @@
     async function warmUpSpace() {
       try {
         console.log('[STEMIX] Warming up space in background...');
-        // Ping the space homepage (no-cors so no errors even if blocked)
+        // Ping the space — wakes it up from sleep (no-cors = no errors even if CORS blocked)
         await fetch('https://micln-mec.hf.space/', {method:'GET', mode:'no-cors'});
-        console.log('[STEMIX] Space ping sent.');
-        // Also try to pre-connect the Gradio client silently
-        // Store it so processAudio can reuse it instead of reconnecting
-        window._gradioClient = await Promise.race([
-          Client.connect(SPACE_ID),
-          new Promise((_,r)=>setTimeout(()=>r(new Error('warmup timeout')),90000))
-        ]);
-        console.log('[STEMIX] Space pre-connected and ready!');
+        console.log('[STEMIX] Space ping 1 sent.');
+        // Second ping after 10s to keep it warm
+        setTimeout(async () => {
+          try {
+            await fetch('https://micln-mec.hf.space/', {method:'GET', mode:'no-cors'});
+            console.log('[STEMIX] Space ping 2 sent.');
+          } catch(e) {}
+        }, 10000);
       } catch(e) {
-        // Silent fail — warmup is best-effort, not critical
         console.log('[STEMIX] Warm-up note:', e.message);
-        window._gradioClient = null;
       }
     }
 
@@ -933,30 +931,79 @@
           ]);
         } catch(e) { /* ignore ping errors, just continue */ }
 
-        // Reuse pre-warmed client from login if available, otherwise connect fresh
-        let client = window._gradioClient;
-        if(client) {
-          console.log('[STEMIX] Reusing pre-warmed client!');
-          setProgress(25,'AI already connected — uploading...');
-        } else {
-          setProgress(18,'Connecting to AI...');
-          client = await Promise.race([
-            Client.connect(SPACE_ID),
-            new Promise((_,reject)=>setTimeout(()=>reject(new Error('Could not connect to AI space. It may be down — try again in 1 minute.')),60000))
-          ]);
-        }
-        // Clear cached client so next job reconnects fresh
-        window._gradioClient = null;
+        const BASE = 'https://micln-mec.hf.space';
 
-        // Upload and predict with 8 minute timeout
-        setProgress(30,'Uploading your track...');
-        const result = await Promise.race([
-          client.predict("/predict", {audio_file: selectedFile, mode: gradioMode}),
-          new Promise((_,reject)=>setTimeout(()=>
-            reject(new Error('AI took too long (8 min). The space is overloaded — wait 1 minute and try again.')),
-            480000
-          ))
+        // ── STEP 1: Upload the file ──
+        setProgress(20, 'Uploading your track...');
+        const uploadForm = new FormData();
+        uploadForm.append('files', selectedFile, selectedFile.name);
+        const uploadRes = await Promise.race([
+          fetch(`${BASE}/upload?upload_id=${Date.now()}`, {method:'POST', body:uploadForm}),
+          new Promise((_,r)=>setTimeout(()=>r(new Error('Upload timed out — check your internet.')), 90000))
         ]);
+        if(!uploadRes.ok) throw new Error(`Upload failed: HTTP ${uploadRes.status}`);
+        const uploadJson = await uploadRes.json();
+        const uploadedPath = Array.isArray(uploadJson) ? uploadJson[0] : uploadJson;
+        console.log('[STEMIX] Uploaded path:', uploadedPath);
+
+        // ── STEP 2: POST to queue/join to get event_id ──
+        setProgress(35, 'Sending to AI queue...');
+        const joinRes = await Promise.race([
+          fetch(`${BASE}/queue/join`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              fn_index: 0,
+              data: [
+                {path: uploadedPath, orig_name: selectedFile.name, is_file: true},
+                gradioMode
+              ],
+              session_hash: Math.random().toString(36).slice(2)
+            })
+          }),
+          new Promise((_,r)=>setTimeout(()=>r(new Error('Queue join timed out.')), 30000))
+        ]);
+        if(!joinRes.ok) throw new Error(`Queue join failed: HTTP ${joinRes.status}`);
+        const joinJson = await joinRes.json();
+        const eventId = joinJson.event_id;
+        console.log('[STEMIX] Event ID:', eventId);
+
+        // ── STEP 3: Stream results via SSE ──
+        setProgress(45, 'AI is processing your track...');
+        const result = await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() =>
+            reject(new Error('AI took too long (8 min). Open https://huggingface.co/spaces/micln/MEC to wake the space up, then try again.')),
+            480000
+          );
+          const evtSource = new EventSource(`${BASE}/queue/data?session_hash=${joinJson.session_hash || ''}`);
+          evtSource.onmessage = (e) => {
+            try {
+              const msg = JSON.parse(e.data);
+              console.log('[STEMIX] SSE msg:', msg.msg);
+              if(msg.msg === 'estimation') {
+                const pos = msg.rank || 0;
+                setProgress(45, pos > 0 ? `Queued — position ${pos}, please wait...` : 'AI processing...');
+              }
+              if(msg.msg === 'process_starts') setProgress(55, 'AI separating stems...');
+              if(msg.msg === 'process_generating') setProgress(70, 'AI separating stems...');
+              if(msg.msg === 'process_completed') {
+                clearTimeout(timeout);
+                evtSource.close();
+                resolve({data: msg.output?.data || []});
+              }
+              if(msg.msg === 'queue_full') {
+                clearTimeout(timeout);
+                evtSource.close();
+                reject(new Error('AI queue is full — wait 30 seconds and try again.'));
+              }
+            } catch(err) { /* ignore parse errors */ }
+          };
+          evtSource.onerror = () => {
+            clearTimeout(timeout);
+            evtSource.close();
+            reject(new Error('Lost connection to AI. Try again.'));
+          };
+        });
         console.log('[STEMIX] Result:', result);
 
         clearInterval(fakeTimer);
