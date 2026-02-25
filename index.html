@@ -931,9 +931,7 @@
             document.getElementById('introReady').classList.add('show');
             // Auto-dismiss after 2 more seconds
             setTimeout(()=>{
-              adWatched=true;
-              document.getElementById('adOverlay').classList.add('hidden');
-              document.getElementById('introReady').classList.remove('show');
+              onIntroDismissed();
             },2000);
           },300);
         }
@@ -949,9 +947,7 @@
     }
 
     function userSkipIntro() {
-      adWatched = true;
-      document.getElementById('adOverlay').classList.add('hidden');
-      document.getElementById('userSkipBar').style.display = 'none';
+      onIntroDismissed();
     }
 
     // ── AD SKIP ──────────────────────────────────────
@@ -968,11 +964,10 @@
     function trySkip() {
       const val = document.getElementById('skipPassInput').value;
       if (val === HOST_PASS) {
-        adWatched = true;
-        document.getElementById('adOverlay').classList.add('hidden');
         document.getElementById('skipModal').classList.remove('visible');
         const media = document.querySelector('#adMediaWrap video, #adMediaWrap audio');
         if (media) { try { media.pause(); } catch(e){} }
+        onIntroDismissed();
       } else {
         document.getElementById('skipErr').textContent = 'Wrong password.';
       }
@@ -996,18 +991,149 @@
       document.getElementById('fileName').textContent   = file.name;
       document.getElementById('fileSize').textContent   = fmtSize(file.size);
       document.getElementById('fileInfo').classList.add('visible');
-      document.getElementById('processBtn').disabled    = false;
+      document.getElementById('processBtn').style.display = 'none'; // hidden — processing is automatic
       document.getElementById('results').classList.remove('visible');
       document.getElementById('progressSection').classList.remove('visible');
       document.getElementById('errorBox').classList.remove('visible');
       document.getElementById('saveIndicator').classList.remove('visible');
       stopPlayback();
 
-      // Start compressing immediately in background
+      // Start compressing immediately
       compressPromise = compressAudio(file).then(f => { compressedFile = f; return f; });
 
-      // NOW trigger the intro — compression + connection run during it
+      // Show intro — full AI processing runs silently during it
       try { checkAndShowAd(); } catch(e) { console.error('Ad error:', e); adWatched = true; }
+
+      // Kick off processing in background — don't await, runs during intro
+      silentProcess();
+    }
+
+    // ── SILENT BACKGROUND PROCESSING ────────────────
+    // Runs during intro. When intro ends, results are shown immediately.
+    let processingPromise = null;
+    let processingResult  = null; // 'done' | 'error'
+    let processedStems    = null;
+    let processedError    = null;
+
+    async function silentProcess() {
+      processingPromise = _doProcess();
+    }
+
+    async function _doProcess() {
+      processingResult = null;
+      processedStems   = null;
+      processedError   = null;
+      try {
+        if(!audioCtx) audioCtx = new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100});
+
+        // Check cache first
+        const cachedStems = await checkFirebaseCache(selectedFile);
+        if (cachedStems) {
+          const stems = await buildStemsFromCached(cachedStems);
+          processedStems  = stems;
+          processingResult = 'done';
+          console.log('[STEMIX] ✓ Cache hit during intro');
+          onProcessingDone();
+          return;
+        }
+
+        const gradioMode = ['stems','bass','drums'].includes(selectedMode) ? 'all stems' : 'vocals only';
+
+        // Use pre-compressed file
+        const fileToSend = compressedFile || await (compressPromise || compressAudio(selectedFile));
+
+        // Use pre-connected client
+        const client = gradioClient || await Promise.race([
+          Client.connect(SPACE_ID),
+          new Promise((_,r)=>setTimeout(()=>r(new Error('AI took too long to connect. Try again in 30 seconds.')),120000))
+        ]);
+
+        const resultIterable = client.submit('/separate_audio', {
+          audio_file: fileToSend,
+          mode:       gradioMode,
+        });
+
+        let result = null;
+        for await (const event of resultIterable) {
+          if (event.type === 'data') result = event.data;
+        }
+
+        if (!result) throw new Error('No result returned from AI.');
+
+        const resultArray = Array.isArray(result) ? result : (result.data ?? []);
+        const stems = await buildStemsFromResult(resultArray);
+        await saveToFirebase(stems);
+
+        processedStems   = stems;
+        processingResult = 'done';
+        console.log('[STEMIX] ✓ Processing complete during intro');
+        onProcessingDone();
+
+      } catch(err) {
+        console.error('[STEMIX error]', err);
+        processedError   = err.message || String(err);
+        processingResult = 'error';
+        onProcessingDone();
+        // Reconnect for next attempt
+        gradioClient  = null;
+        clientPromise = null;
+        startBackgroundPipeline();
+      }
+    }
+
+    // Called when processing finishes — either show results or wait for intro to end
+    function onProcessingDone() {
+      if (adWatched) showProcessingResult(); // intro already ended, show now
+      // else: intro is still going — result will be shown when intro ends (see adDismiss)
+    }
+
+    // Called when intro ends (auto or skip)
+    function onIntroDismissed() {
+      adWatched = true;
+      document.getElementById('adOverlay').classList.add('hidden');
+      document.getElementById('userSkipBar').style.display = 'none';
+      document.getElementById('introReady').classList.remove('show');
+
+      if (processingResult === 'done') {
+        // Already finished — show results immediately
+        showProcessingResult();
+      } else if (processingResult === 'error') {
+        showProcessingResult();
+      } else {
+        // Still running — show live progress bar
+        document.getElementById('processBtn').style.display = 'none';
+        document.getElementById('progressSection').classList.add('visible');
+        document.getElementById('statusText').textContent = 'AI is separating your stems...';
+        // Poll until done
+        const poll = setInterval(() => {
+          if (processingResult !== null) {
+            clearInterval(poll);
+            showProcessingResult();
+          }
+        }, 500);
+      }
+    }
+
+    function showProcessingResult() {
+      document.getElementById('progressSection').classList.remove('visible');
+      if (processingResult === 'done' && processedStems) {
+        document.getElementById('saveIndicator').classList.add('visible');
+        buildResults(processedStems);
+        document.getElementById('results').classList.add('visible');
+      } else if (processingResult === 'error') {
+        const m = processedError || 'Unknown error';
+        let msg;
+        if      (m.includes('timeout') || m.includes('took too long')) msg = '⏱ ' + m;
+        else if (m.includes('503') || m.includes('sleep'))             msg = '💤 The AI is waking up — wait 30 seconds and try again.';
+        else if (m.includes('connect') || m.includes('NetworkError'))  msg = '🌐 Could not reach AI. Check your internet connection.';
+        else if (m.includes('No audio'))                               msg = '🔇 ' + m;
+        else                                                           msg = '⚠ ' + m;
+        showError(msg);
+        // Show retry button
+        document.getElementById('processBtn').style.display = 'block';
+        document.getElementById('processBtn').disabled = false;
+        document.getElementById('processBtn').textContent = '↺  Retry';
+      }
     }
 
     function fmtSize(b){ return b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB'; }
@@ -1021,109 +1147,22 @@
       if (name==='history') loadHistory();
     }
 
-    // ── PROCESS ───────────────────────────────────────
+    // ── PROCESS (retry only — normal flow is automatic via silentProcess) ──
     async function processAudio() {
       if (!selectedFile) return;
-
-      document.getElementById('processBtn').disabled = true;
-      document.getElementById('progressSection').classList.add('visible');
-      document.getElementById('results').classList.remove('visible');
+      document.getElementById('processBtn').style.display = 'none';
       document.getElementById('errorBox').classList.remove('visible');
-      document.getElementById('saveIndicator').classList.remove('visible');
-      stopPlayback();
-
-      const statusEl = document.getElementById('statusText');
-      statusEl.className='status-text blink'; statusEl.style.color='';
-
-      if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100});
-
-      try {
-        // ── STEP 0: Check Firebase cache first ──
-        setProgress(5, 'Checking cache...');
-        const cachedStems = await checkFirebaseCache(selectedFile);
-        if (cachedStems) {
-          setProgress(60, 'Loading from cache...');
-          const stems = await buildStemsFromCached(cachedStems);
-          setProgress(100, '✓ Loaded from cache instantly!');
-          statusEl.className='status-text';
-          document.getElementById('saveIndicator').classList.add('visible');
-          setTimeout(()=>{
-            document.getElementById('progressSection').classList.remove('visible');
-            buildResults(stems);
-            document.getElementById('results').classList.add('visible');
-          },400);
-          return;
+      document.getElementById('progressSection').classList.add('visible');
+      document.getElementById('statusText').textContent = 'Retrying...';
+      document.getElementById('statusText').className = 'status-text blink';
+      await silentProcess();
+      // Poll until done
+      const poll = setInterval(() => {
+        if (processingResult !== null) {
+          clearInterval(poll);
+          showProcessingResult();
         }
-
-        const gradioMode = ['stems','bass','drums'].includes(selectedMode) ? 'all stems' : 'vocals only';
-
-        // ── STEP 1: Use pre-compressed file (already done in background) ──
-        setProgress(10, 'Preparing audio...');
-        const fileToSend = compressedFile || await (compressPromise || compressAudio(selectedFile));
-
-        // ── STEP 2: Use pre-connected client (already done during intro) ──
-        setProgress(20, 'Connecting to AI...');
-        const client = gradioClient || await Promise.race([
-          Client.connect(SPACE_ID),
-          new Promise((_,r)=>setTimeout(()=>r(new Error('AI took too long to connect. Try again in 30 seconds.')),120000))
-        ]);
-
-        // ── STEP 3: Submit ──
-        setProgress(35, 'Sending to AI...');
-        const resultIterable = client.submit('/separate_audio', {
-          audio_file: fileToSend,
-          mode:       gradioMode,
-        });
-
-        let result = null;
-        for await (const event of resultIterable) {
-          if (event.type === 'status') {
-            const s = event.data;
-            if (s?.queue === true && s?.position != null) {
-              setProgress(40, `Queued — position ${s.position}, please wait...`);
-            } else if (s?.stage === 'generating') {
-              setProgress(65, 'AI separating stems...');
-            } else if (s?.stage === 'complete') {
-              setProgress(85, 'Almost done...');
-            }
-          }
-          if (event.type === 'data') result = event.data;
-        }
-
-        if (!result) throw new Error('No result returned from AI.');
-
-        const resultArray = Array.isArray(result) ? result : (result.data ?? []);
-
-        setProgress(90, 'Loading your tracks...');
-        const stems = await buildStemsFromResult(resultArray);
-        setProgress(95, 'Saving to Firebase...');
-        await saveToFirebase(stems);
-        setProgress(100, '✓ Done! Saved to your history.');
-        statusEl.className='status-text';
-        document.getElementById('saveIndicator').classList.add('visible');
-        setTimeout(()=>{
-          document.getElementById('progressSection').classList.remove('visible');
-          buildResults(stems);
-          document.getElementById('results').classList.add('visible');
-        },500);
-
-      } catch(err) {
-        console.error('[STEMIX error]', err);
-        const m = err.message || String(err);
-        let msg;
-        if      (m.includes('timeout') || m.includes('took too long')) msg = '⏱ ' + m;
-        else if (m.includes('503') || m.includes('sleep'))             msg = '💤 The AI is waking up — wait 30 seconds and try again.';
-        else if (m.includes('connect') || m.includes('NetworkError'))  msg = '🌐 Could not reach AI. Check your internet connection.';
-        else if (m.includes('No audio'))                               msg = '🔇 ' + m;
-        else                                                           msg = '⚠ ' + m;
-        showError(msg);
-        document.getElementById('progressSection').classList.remove('visible');
-        document.getElementById('processBtn').disabled = false;
-        // Reset client so next attempt reconnects fresh
-        gradioClient = null;
-        clientPromise = null;
-        startBackgroundPipeline();
-      }
+      }, 500);
     }
 
     function showError(msg){const b=document.getElementById('errorBox');b.textContent=msg;b.classList.add('visible');}
@@ -1481,12 +1520,14 @@
 
     // ── RESET ─────────────────────────────────────────
     function resetAll(){
-      stopPlayback(); selectedFile=bufferA=bufferB=null;
+      stopPlayback();
+      selectedFile=bufferA=bufferB=null;
       compressedFile=null; compressPromise=null;
+      processingPromise=null; processingResult=null;
+      processedStems=null; processedError=null;
       ['fileInfo','results','progressSection','errorBox','saveIndicator'].forEach(id=>
         document.getElementById(id).classList.remove('visible'));
-      document.getElementById('processBtn').disabled=true;
-      document.getElementById('processBtn').textContent='⬡   Start AI Separation';
+      document.getElementById('processBtn').style.display = 'none';
       document.getElementById('progressBar').style.width='0%';
       document.getElementById('stemCards').innerHTML='';
       fileInput.value=''; pauseOffset=0;
