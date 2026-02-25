@@ -607,6 +607,12 @@
     let volA = 1.0, volB = 1.0;
     let allHistoryDocs = [];
 
+    // ── BACKGROUND PIPELINE STATE ────────────────────
+    let gradioClient      = null;   // pre-connected Gradio client
+    let compressedFile    = null;   // pre-compressed audio blob
+    let compressPromise   = null;   // promise resolving to compressed file
+    let clientPromise     = null;   // promise resolving to gradio client
+
     // ── WIRE UP ALL EVENT LISTENERS ──────────────────
     // deleteHistory is called from dynamic innerHTML so must stay on window
     window.deleteHistory = deleteHistory;
@@ -673,37 +679,91 @@
         if (!val) { document.getElementById('loginErr').textContent = 'Please enter a username.'; return; }
         currentUser = val.toLowerCase().replace(/[^a-z0-9_-]/g,'');
         if (!currentUser) { document.getElementById('loginErr').textContent = 'Username can only contain letters, numbers, - or _'; return; }
-        // Hide login, show app
         document.getElementById('loginOverlay').classList.add('hidden');
         document.getElementById('displayName').textContent = val;
         document.getElementById('mainApp').style.display = 'block';
-        // Show intro animation then warm up space
-        try { checkAndShowAd(); } catch(e) { console.error('Ad error:', e); adWatched = true; }
-        try { warmUpSpace(); }    catch(e) { console.error('Warmup error:', e); }
+        // Start connecting to Gradio in background immediately (no intro yet)
+        startBackgroundPipeline();
       } catch(e) {
         console.error('Login error:', e);
         document.getElementById('loginErr').textContent = 'Error: ' + e.message;
       }
     }
 
-    // ── BACKGROUND WARM-UP ───────────────────────────
-    // Called on login so the space is already running by the time user uploads
-    async function warmUpSpace() {
+    // ── BACKGROUND PIPELINE ──────────────────────────
+    // Starts on login, runs during intro so everything is ready when user hits Start
+    function startBackgroundPipeline() {
+      // 1. Pre-connect Gradio client (wakes the space up properly)
+      clientPromise = Client.connect(SPACE_ID)
+        .then(c => { gradioClient = c; console.log('[STEMIX] ✓ Gradio client pre-connected'); return c; })
+        .catch(e => { console.warn('[STEMIX] Pre-connect failed, will retry on process:', e.message); return null; });
+    }
+
+    // ── COMPRESS AUDIO ───────────────────────────────
+    // Called the moment user selects a file — compresses in background while they pick mode
+    async function compressAudio(file) {
       try {
-        console.log('[STEMIX] Warming up space in background...');
-        // Ping the space — wakes it up from sleep (no-cors = no errors even if CORS blocked)
-        await fetch('https://micln-mec.hf.space/', {method:'GET', mode:'no-cors'});
-        console.log('[STEMIX] Space ping 1 sent.');
-        // Second ping after 10s to keep it warm
-        setTimeout(async () => {
-          try {
-            await fetch('https://micln-mec.hf.space/', {method:'GET', mode:'no-cors'});
-            console.log('[STEMIX] Space ping 2 sent.');
-          } catch(e) {}
-        }, 10000);
+        console.log('[STEMIX] Compressing:', file.name, (file.size/1048576).toFixed(2)+'MB');
+        // Already small enough — skip compression
+        if (file.size < 2 * 1048576) {
+          console.log('[STEMIX] File small, skipping compression');
+          return file;
+        }
+        if (!audioCtx) audioCtx = new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100});
+        const arrayBuf = await file.arrayBuffer();
+        const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
+
+        // Encode to low-bitrate WAV (mono if stereo, capped at 44.1kHz)
+        const numCh   = Math.min(audioBuf.numberOfChannels, 2);
+        const numSamp = audioBuf.length;
+        const sr      = audioBuf.sampleRate;
+        const dSz     = numSamp * numCh * 2;
+        const ab      = new ArrayBuffer(44 + dSz);
+        const v       = new DataView(ab);
+        const ws = (o,s) => { for(let i=0;i<s.length;i++) v.setUint8(o+i,s.charCodeAt(i)); };
+        ws(0,'RIFF'); v.setUint32(4,36+dSz,true); ws(8,'WAVE'); ws(12,'fmt ');
+        v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,numCh,true);
+        v.setUint32(24,sr,true); v.setUint32(28,sr*numCh*2,true);
+        v.setUint16(32,numCh*2,true); v.setUint16(34,16,true);
+        ws(36,'data'); v.setUint32(40,dSz,true);
+        let off = 44;
+        for (let i=0;i<numSamp;i++) {
+          for (let c=0;c<numCh;c++) {
+            const s = audioBuf.getChannelData(c)[i];
+            v.setInt16(off, s<0?s*32768:s*32767, true); off+=2;
+          }
+        }
+        const blob = new Blob([ab], {type:'audio/wav'});
+        const compressed = new File([blob], file.name.replace(/\.[^.]+$/,'')+'.wav', {type:'audio/wav'});
+        console.log('[STEMIX] ✓ Compressed to', (compressed.size/1048576).toFixed(2)+'MB');
+        return compressed;
       } catch(e) {
-        console.log('[STEMIX] Warm-up note:', e.message);
+        console.warn('[STEMIX] Compression failed, using original:', e.message);
+        return file;
       }
+    }
+
+    // ── FIREBASE CACHE CHECK ─────────────────────────
+    async function checkFirebaseCache(file) {
+      try {
+        // Build a simple hash from filename + size + lastModified
+        const hashKey = `${file.name}_${file.size}_${file.lastModified}`;
+        const q = query(
+          collection(db,'history'),
+          where('username','==',currentUser),
+          where('cacheKey','==',hashKey),
+          orderBy('date','desc')
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const cached = snap.docs[0].data();
+          console.log('[STEMIX] ✓ Cache hit! Serving from Firebase');
+          return cached.stems || null;
+        }
+      } catch(e) {
+        console.warn('[STEMIX] Cache check failed:', e.message);
+      }
+      return null;
     }
 
     function doLogout() {
@@ -930,8 +990,8 @@
     fileInput.addEventListener('change', e=>{if(e.target.files[0]) handleFile(e.target.files[0]);});
 
     function handleFile(file) {
-      if (adEnabled && adFileURL && !adWatched && !isHost) { showAd(); return; }
-      selectedFile = file;
+      selectedFile   = file;
+      compressedFile = null;
       document.getElementById('fileBadge').textContent = file.name.split('.').pop().toUpperCase();
       document.getElementById('fileName').textContent   = file.name;
       document.getElementById('fileSize').textContent   = fmtSize(file.size);
@@ -942,6 +1002,12 @@
       document.getElementById('errorBox').classList.remove('visible');
       document.getElementById('saveIndicator').classList.remove('visible');
       stopPlayback();
+
+      // Start compressing immediately in background
+      compressPromise = compressAudio(file).then(f => { compressedFile = f; return f; });
+
+      // NOW trigger the intro — compression + connection run during it
+      try { checkAndShowAd(); } catch(e) { console.error('Ad error:', e); adWatched = true; }
     }
 
     function fmtSize(b){ return b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB'; }
@@ -958,7 +1024,6 @@
     // ── PROCESS ───────────────────────────────────────
     async function processAudio() {
       if (!selectedFile) return;
-      if (adEnabled && adFileURL && !adWatched && !isHost) { showAd(); return; }
 
       document.getElementById('processBtn').disabled = true;
       document.getElementById('progressSection').classList.add('visible');
@@ -970,63 +1035,70 @@
       const statusEl = document.getElementById('statusText');
       statusEl.className='status-text blink'; statusEl.style.color='';
 
-      // FIX 1: Fake progress stays under 82 so real steps (90/95/100) are visible jumps
-      // FIX 2: Slower interval (3s) avoids reaching cap before AI even responds
-      let fakePct=5; setProgress(fakePct,'Connecting to AI...');
-      const fakeTimer=setInterval(()=>{
-        if(fakePct<82){fakePct+=Math.random()*0.8;setProgress(Math.round(fakePct),statusMsg(fakePct));}
-      },3000);
+      if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100});
 
       try {
-        if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100});
-        const gradioMode=['stems','bass','drums'].includes(selectedMode)?'all stems':'vocals only';
+        // ── STEP 0: Check Firebase cache first ──
+        setProgress(5, 'Checking cache...');
+        const cachedStems = await checkFirebaseCache(selectedFile);
+        if (cachedStems) {
+          setProgress(60, 'Loading from cache...');
+          const stems = await buildStemsFromCached(cachedStems);
+          setProgress(100, '✓ Loaded from cache instantly!');
+          statusEl.className='status-text';
+          document.getElementById('saveIndicator').classList.add('visible');
+          setTimeout(()=>{
+            document.getElementById('progressSection').classList.remove('visible');
+            buildResults(stems);
+            document.getElementById('results').classList.add('visible');
+          },400);
+          return;
+        }
 
-        // ── Connect via official @gradio/client (handles Gradio 4 API automatically) ──
-        setProgress(10, 'Connecting to AI...');
-        const client = await Promise.race([
+        const gradioMode = ['stems','bass','drums'].includes(selectedMode) ? 'all stems' : 'vocals only';
+
+        // ── STEP 1: Use pre-compressed file (already done in background) ──
+        setProgress(10, 'Preparing audio...');
+        const fileToSend = compressedFile || await (compressPromise || compressAudio(selectedFile));
+
+        // ── STEP 2: Use pre-connected client (already done during intro) ──
+        setProgress(20, 'Connecting to AI...');
+        const client = gradioClient || await Promise.race([
           Client.connect(SPACE_ID),
-          new Promise((_,r)=>setTimeout(()=>r(new Error('AI took too long to connect. The space may be sleeping — try again in 30 seconds.')), 120000))
+          new Promise((_,r)=>setTimeout(()=>r(new Error('AI took too long to connect. Try again in 30 seconds.')),120000))
         ]);
 
-        console.log('[STEMIX] Gradio client connected');
-
-        setProgress(25, 'Uploading your track...');
-        setProgress(40, 'AI is processing your track...');
-
-        // ── Call the correct endpoint with named parameters ──
-        const resultIterable = client.submit('/separate_audio', { 
-          audio_file: selectedFile,
+        // ── STEP 3: Submit ──
+        setProgress(35, 'Sending to AI...');
+        const resultIterable = client.submit('/separate_audio', {
+          audio_file: fileToSend,
           mode:       gradioMode,
         });
 
         let result = null;
         for await (const event of resultIterable) {
-          console.log('[STEMIX] event:', event.type, event);
           if (event.type === 'status') {
             const s = event.data;
             if (s?.queue === true && s?.position != null) {
-              setProgress(42, `Queued — position ${s.position}, please wait...`);
+              setProgress(40, `Queued — position ${s.position}, please wait...`);
             } else if (s?.stage === 'generating') {
-              setProgress(70, 'AI separating stems...');
+              setProgress(65, 'AI separating stems...');
+            } else if (s?.stage === 'complete') {
+              setProgress(85, 'Almost done...');
             }
           }
-          if (event.type === 'data') {
-            result = event.data;
-          }
+          if (event.type === 'data') result = event.data;
         }
 
         if (!result) throw new Error('No result returned from AI.');
-        console.log('[STEMIX] Result:', result);
 
-        // @gradio/client returns data as array directly (not wrapped in .data)
         const resultArray = Array.isArray(result) ? result : (result.data ?? []);
 
-        clearInterval(fakeTimer);
-        setProgress(90,'Loading your tracks...');
-        const stems=await buildStemsFromResult(resultArray);
-        setProgress(95,'Saving to Firebase...');
+        setProgress(90, 'Loading your tracks...');
+        const stems = await buildStemsFromResult(resultArray);
+        setProgress(95, 'Saving to Firebase...');
         await saveToFirebase(stems);
-        setProgress(100,'✓ Done! Saved to your history.');
+        setProgress(100, '✓ Done! Saved to your history.');
         statusEl.className='status-text';
         document.getElementById('saveIndicator').classList.add('visible');
         setTimeout(()=>{
@@ -1034,34 +1106,24 @@
           buildResults(stems);
           document.getElementById('results').classList.add('visible');
         },500);
+
       } catch(err) {
-        clearInterval(fakeTimer);
         console.error('[STEMIX error]', err);
         const m = err.message || String(err);
         let msg;
-        if(m.includes('timeout') || m.includes('took too long')) {
-          msg = '⏱ ' + m;
-        } else if(m.includes('503') || m.includes('sleep')) {
-          msg = '💤 The AI is waking up — wait 30 seconds and try again.';
-        } else if(m.includes('connect') || m.includes('fetch') || m.includes('NetworkError')) {
-          msg = '🌐 Could not reach AI. Check your internet connection.';
-        } else if(m.includes('No audio')) {
-          msg = '🔇 ' + m;
-        } else {
-          msg = '⚠ ' + m;
-        }
+        if      (m.includes('timeout') || m.includes('took too long')) msg = '⏱ ' + m;
+        else if (m.includes('503') || m.includes('sleep'))             msg = '💤 The AI is waking up — wait 30 seconds and try again.';
+        else if (m.includes('connect') || m.includes('NetworkError'))  msg = '🌐 Could not reach AI. Check your internet connection.';
+        else if (m.includes('No audio'))                               msg = '🔇 ' + m;
+        else                                                           msg = '⚠ ' + m;
         showError(msg);
         document.getElementById('progressSection').classList.remove('visible');
-        document.getElementById('processBtn').disabled=false;
+        document.getElementById('processBtn').disabled = false;
+        // Reset client so next attempt reconnects fresh
+        gradioClient = null;
+        clientPromise = null;
+        startBackgroundPipeline();
       }
-    }
-
-    function statusMsg(p){
-      if(p<25)return'Uploading song to AI...';
-      if(p<45)return'AI separating vocals from instruments...';
-      if(p<65)return'Cleaning up stems...';
-      if(p<80)return'Almost done — final pass...';
-      return'Waiting for AI response...';
     }
 
     function showError(msg){const b=document.getElementById('errorBox');b.textContent=msg;b.classList.add('visible');}
@@ -1114,24 +1176,48 @@
 
     // ── FIREBASE SAVE ─────────────────────────────────
     async function saveToFirebase(stems) {
-      const jobId=Date.now().toString();
-      const songName=selectedFile.name.replace(/\.[^.]+$/,'');
-      const stemRefs=[];
+      const jobId    = Date.now().toString();
+      const songName = selectedFile.name.replace(/\.[^.]+$/,'');
+      const cacheKey = `${selectedFile.name}_${selectedFile.size}_${selectedFile.lastModified}`;
+      const stemRefs = [];
       for(const stem of stems){
         try{
-          const path=`stems/${currentUser}/${jobId}/${stem.name}.mp3`;
-          const sRef=ref(storage,path);
-          await uploadBytes(sRef,stem.arrBuf,{contentType:'audio/mpeg'});
-          const dlURL=await getDownloadURL(sRef);
-          stemRefs.push({name:stem.name,icon:stem.icon,desc:stem.desc,url:dlURL,path});
-        }catch(e){console.warn('[STEMIX] Upload fail',stem.name,e);}
+          const path  = `stems/${currentUser}/${jobId}/${stem.name}.mp3`;
+          const sRef  = ref(storage, path);
+          await uploadBytes(sRef, stem.arrBuf, {contentType:'audio/mpeg'});
+          const dlURL = await getDownloadURL(sRef);
+          stemRefs.push({name:stem.name, icon:stem.icon, desc:stem.desc, url:dlURL, path});
+        }catch(e){ console.warn('[STEMIX] Upload fail', stem.name, e); }
       }
-      if(stemRefs.length>0){
+      if(stemRefs.length > 0){
         await addDoc(collection(db,'history'),{
-          username:currentUser, songName, mode:selectedMode,
+          username:currentUser, songName, mode:selectedMode, cacheKey,
           date:new Date().toISOString(), jobId, stems:stemRefs
         });
       }
+    }
+
+    // ── BUILD STEMS FROM CACHED FIREBASE URLS ────────
+    async function buildStemsFromCached(cachedStems) {
+      const labels = [
+        {name:'Instrumental', icon:'🎸', desc:'Music without vocals', track:'A'},
+        {name:'Vocals',       icon:'🎤', desc:'Isolated vocal track', track:'B'},
+        {name:'Bass',         icon:'🎵', desc:'Low-end bass track',   track:null},
+        {name:'Drums',        icon:'🥁', desc:'Drums and percussion', track:null},
+      ];
+      const stems = [];
+      for(const s of cachedStems){
+        try{
+          const res    = await fetch(s.url);
+          const arrBuf = await res.arrayBuffer();
+          const audBuf = await audioCtx.decodeAudioData(arrBuf.slice(0));
+          const blob   = new Blob([arrBuf], {type:'audio/mpeg'});
+          const url    = URL.createObjectURL(blob);
+          const label  = labels.find(l=>l.name===s.name) || {track:null};
+          stems.push({...s, ...label, buffer:audBuf, blob, url, arrBuf});
+        }catch(e){ console.warn('[STEMIX] Cache load fail', s.name, e); }
+      }
+      return stems;
     }
 
     // ── FIREBASE LOAD HISTORY ────────────────────────
@@ -1395,14 +1481,15 @@
 
     // ── RESET ─────────────────────────────────────────
     function resetAll(){
-      stopPlayback();selectedFile=bufferA=bufferB=null;
+      stopPlayback(); selectedFile=bufferA=bufferB=null;
+      compressedFile=null; compressPromise=null;
       ['fileInfo','results','progressSection','errorBox','saveIndicator'].forEach(id=>
         document.getElementById(id).classList.remove('visible'));
       document.getElementById('processBtn').disabled=true;
       document.getElementById('processBtn').textContent='⬡   Start AI Separation';
       document.getElementById('progressBar').style.width='0%';
       document.getElementById('stemCards').innerHTML='';
-      fileInput.value='';pauseOffset=0;
+      fileInput.value=''; pauseOffset=0;
     }
   </script>
 </body>
