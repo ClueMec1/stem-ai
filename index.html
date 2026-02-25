@@ -625,7 +625,13 @@
 
     // Login
     document.getElementById('loginBtn').addEventListener('click', doLogin);
-    document.getElementById('loginInput').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('loginEmail').focus(); });
+    document.getElementById('loginInput').addEventListener('keydown', e => {
+      if(e.key==='Enter') {
+        const email = document.getElementById('loginEmail').value.trim();
+        if(email) doLogin(); // if email already filled, just submit
+        else document.getElementById('loginEmail').focus(); // otherwise move to email
+      }
+    });
     document.getElementById('loginEmail').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 
     // Logout
@@ -680,7 +686,16 @@
     document.getElementById('adUploadArea').addEventListener('click', () => document.getElementById('adFileInput').click());
 
     // ── EMAILJS INIT ─────────────────────────────────
-    emailjs.init('gBlc9kKG8eZfOr6UV');
+    // Wait for EmailJS SDK to be ready before initialising
+    function initEmailJS() {
+      if (window.emailjs) {
+        window.emailjs.init('gBlc9kKG8eZfOr6UV');
+        console.log('[STEMIX] ✓ EmailJS ready');
+      } else {
+        setTimeout(initEmailJS, 200);
+      }
+    }
+    initEmailJS();
 
     // ── LOGIN ────────────────────────────────────────
     function doLogin() {
@@ -1312,7 +1327,7 @@
           `${s.icon} ${s.name}: ${s.url}`
         ).join('\n');
 
-        await emailjs.send('service_1027', 'template_n4cw0g5', {
+        await window.emailjs.send('service_1027', 'template_n4cw0g5', {
           to_email:  currentEmail,
           user_name: currentUser,
           song_name: songName,
