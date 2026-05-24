@@ -11,12 +11,23 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Firebase Admin ────────────────────────────────────────────────────────────
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
+// ── Firebase Admin using individual env vars ──────────────────────────────────
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+  credential: admin.credential.cert({
+    type:                        'service_account',
+    project_id:                  process.env.FB_PROJECT_ID,
+    private_key_id:              process.env.FB_PRIVATE_KEY_ID,
+    private_key:                 (process.env.FB_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+    client_email:                process.env.FB_CLIENT_EMAIL,
+    client_id:                   process.env.FB_CLIENT_ID,
+    auth_uri:                    'https://accounts.google.com/o/oauth2/auth',
+    token_uri:                   'https://oauth2.googleapis.com/token',
+    auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
+    client_x509_cert_url:        process.env.FB_CERT_URL,
+  }),
   databaseURL: 'https://ai-1-46a29-default-rtdb.firebaseio.com'
 });
+
 const db = admin.database();
 
 async function getData() {
@@ -33,7 +44,6 @@ function comingSoonTwiml(menuId, msg) {
   return t.toString();
 }
 
-// ── Entry point ───────────────────────────────────────────────────────────────
 app.post('/api/phone/start', async (req, res) => {
   res.type('text/xml');
   res.send(await buildMenuTwiml('main'));
@@ -49,7 +59,6 @@ async function buildMenuTwiml(menuId) {
   const menu  = data.menus?.[menuId];
   const t     = new VoiceResponse();
   if (!menu) { t.say('Menu not found.'); t.hangup(); return t.toString(); }
-
   const g = t.gather({
     numDigits: 2, action: `/api/phone/input?menuId=${menuId}`,
     method: 'POST', timeout: 10, input: 'dtmf speech', speechTimeout: 'auto'
@@ -60,7 +69,6 @@ async function buildMenuTwiml(menuId) {
   return t.toString();
 }
 
-// ── Handle input ──────────────────────────────────────────────────────────────
 app.post('/api/phone/input', async (req, res) => {
   const menuId = req.query.menuId || 'main';
   const digits = (req.body.Digits || '').trim();
@@ -96,22 +104,21 @@ app.post('/api/phone/input', async (req, res) => {
         g.play(button.recording);
         g.say('Press a number or say main menu to continue.');
         t.redirect(`/api/phone/menu?menuId=${menuId}`);
-      } else res.type('text/xml'), res.send(comingSoonTwiml(menuId, cs));
+      } else { res.type('text/xml'); return res.send(comingSoonTwiml(menuId, cs)); }
       break;
     case 'submenu':
       if (button.menuId && data.menus?.[button.menuId]) t.redirect(`/api/phone/menu?menuId=${button.menuId}`);
-      else res.type('text/xml'), res.send(comingSoonTwiml(menuId, cs));
+      else { res.type('text/xml'); return res.send(comingSoonTwiml(menuId, cs)); }
       break;
     case 'forward':
       if (button.forwardTo) { t.say('Please hold while we connect you.'); t.dial(button.forwardTo); }
-      else res.type('text/xml'), res.send(comingSoonTwiml(menuId, cs));
+      else { res.type('text/xml'); return res.send(comingSoonTwiml(menuId, cs)); }
       break;
     case 'transfer':
       if (button.forwardTo) {
         t.say('Please hold while we transfer your call.');
-        const dial = t.dial();
-        dial.number(button.forwardTo);
-      } else res.type('text/xml'), res.send(comingSoonTwiml(menuId, cs));
+        t.dial().number(button.forwardTo);
+      } else { res.type('text/xml'); return res.send(comingSoonTwiml(menuId, cs)); }
       break;
     case 'voicemail':
       t.say('Please leave your message after the beep. Press pound when done.');
@@ -125,7 +132,6 @@ app.post('/api/phone/input', async (req, res) => {
   res.send(t.toString());
 });
 
-// ── Voicemail saved ───────────────────────────────────────────────────────────
 app.post('/api/phone/voicemail-saved', async (req, res) => {
   const menuId = req.query.menuId || 'main';
   const id     = Date.now().toString();
@@ -140,4 +146,4 @@ app.post('/api/phone/voicemail-saved', async (req, res) => {
 });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.listen(PORT, () => console.log(`Family Hotline running on port ${PORT}`));
+app.listen(PORT, () => console.log(`✅ Family Hotline running on port ${PORT}`));
