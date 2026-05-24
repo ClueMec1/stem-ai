@@ -1,595 +1,738 @@
-/* ══════════════════════════════════════════════════════════
-   FAMILY HOTLINE — HOST DASHBOARD CSS
-   ══════════════════════════════════════════════════════════ */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Family Hotline Control Panel</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d14;--surface:#16161f;--surface2:#1e1e2a;--border:#2a2a3a;
+  --accent:#f5c842;--accent2:#e8704a;--green:#4ade80;--red:#f87171;--blue:#60a5fa;
+  --text:#f0eeea;--muted:#7a7a9a;--r:12px;--rs:8px;
+}
+html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden}
+.hidden{display:none!important}
+/* ── SCREENS ── */
+.screen{display:none;min-height:100vh;flex-direction:column}
+.screen.active{display:flex}
+/* ── LOGIN ── */
+#loginScreen{align-items:center;justify-content:center;background:radial-gradient(ellipse at 60% 40%,#1a1230 0%,#0d0d14 70%)}
+.login-wrap{text-align:center;width:320px}
+.login-icon{font-size:72px;margin-bottom:8px;animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.login-wrap h1{font-size:2rem;font-weight:800;color:var(--accent);margin-bottom:4px}
+.login-sub{color:var(--muted);font-size:.85rem;margin-bottom:28px}
+.pin-dots{display:flex;justify-content:center;gap:14px;margin-bottom:24px}
+.pin-dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:all .2s}
+.pin-dot.filled{background:var(--accent);border-color:var(--accent)}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.nk{background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:1.4rem;font-weight:600;padding:18px;border-radius:var(--r);cursor:pointer;transition:background .15s,transform .1s}
+.nk:hover{background:var(--surface2)}
+.nk:active{transform:scale(.93)}
+.nk.del{font-size:1.1rem;color:var(--muted)}
+.nk.go{background:var(--accent);color:#000;font-size:1.2rem}
+.nk.go:hover{background:#e6b93a}
+.login-err{color:var(--red);font-size:.82rem;margin-top:6px;animation:shake .35s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%,75%{transform:translateX(-8px)}50%{transform:translateX(8px)}}
+/* ── TOPBAR ── */
+.topbar{display:flex;align-items:center;gap:12px;padding:13px 22px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.topbar-brand{font-size:1.2rem;font-weight:800;color:var(--accent);margin-right:auto}
+.tab-btn{background:transparent;border:1px solid var(--border);color:var(--muted);font-size:.75rem;padding:7px 14px;border-radius:20px;cursor:pointer;transition:all .2s;position:relative}
+.tab-btn:hover{color:var(--text);border-color:var(--accent)}
+.tab-btn.active{background:var(--accent);color:#000;border-color:var(--accent)}
+.badge{background:var(--red);color:#fff;border-radius:50%;font-size:.6rem;padding:1px 5px;position:absolute;top:-4px;right:-4px}
+.logout-btn{background:transparent;border:1px solid var(--border);color:var(--muted);font-size:.75rem;padding:6px 12px;border-radius:20px;cursor:pointer}
+.logout-btn:hover{color:var(--red);border-color:var(--red)}
+/* ── TABS ── */
+.tab-pane{display:none;padding:22px;flex:1}
+.tab-pane.active{display:block}
+/* ── BREADCRUMB ── */
+.bc{display:flex;align-items:center;gap:8px;margin-bottom:18px;font-size:.78rem;color:var(--muted);flex-wrap:wrap}
+.bc-item{cursor:pointer;color:var(--accent)}
+.bc-item:hover{text-decoration:underline}
+.bc-sep{color:var(--border)}
+.bc-cur{color:var(--text)}
+/* ── GREETING BAR ── */
+.greeting-bar{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:var(--r);padding:14px 18px;display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+.greeting-info{flex:1}
+.greeting-info strong{display:block;font-size:.95rem;margin-bottom:2px}
+.greeting-info span{font-size:.75rem;color:var(--muted)}
+.gb-actions{display:flex;gap:8px}
+/* ── BUTTONS GRID ── */
+.btn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:13px;margin-bottom:16px}
+.btn-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;transition:border-color .2s}
+.btn-card:hover{border-color:var(--accent)}
+.btn-card-top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.btn-num{background:var(--accent);color:#000;font-size:1.2rem;font-weight:900;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.btn-label{font-size:.95rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn-type-tag{font-size:.7rem;color:var(--muted);margin-top:2px}
+.btn-actions{display:flex;gap:6px;flex-wrap:wrap}
+.ab{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:.72rem;padding:5px 10px;border-radius:var(--rs);cursor:pointer;transition:background .15s;white-space:nowrap}
+.ab:hover{background:var(--border)}
+.ab.primary{background:var(--accent);color:#000;border-color:var(--accent)}
+.ab.danger{color:var(--red);border-color:transparent}
+.ab.danger:hover{background:rgba(248,113,113,.15);border-color:var(--red)}
+.ab.success{color:var(--green);border-color:transparent}
+.ab.success:hover{background:rgba(74,222,128,.1);border-color:var(--green)}
+.add-card{background:transparent;border:2px dashed var(--border);color:var(--muted);font-size:.85rem;border-radius:var(--r);padding:20px;cursor:pointer;transition:all .2s;text-align:center;width:100%}
+.add-card:hover{border-color:var(--accent);color:var(--accent)}
+/* ── VOICEMAILS ── */
+.vm-list{display:flex;flex-direction:column;gap:10px}
+.vm-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.vm-card.unheard{border-left:4px solid var(--accent2)}
+.vm-info{flex:1;min-width:150px}
+.vm-from{font-size:.9rem;font-weight:600}
+.vm-meta{font-size:.72rem;color:var(--muted);margin-top:2px}
+.new-pill{background:var(--accent2);color:#fff;font-size:.62rem;padding:2px 7px;border-radius:10px}
+/* ── SETTINGS ── */
+.settings-wrap{max-width:520px;display:flex;flex-direction:column;gap:18px}
+.s-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px}
+.s-card h3{font-size:1rem;font-weight:700;margin-bottom:16px;color:var(--accent)}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:.75rem;color:var(--muted);margin-bottom:5px}
+.field input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:.9rem;padding:9px 13px;border-radius:var(--rs);outline:none;transition:border-color .2s}
+.field input:focus{border-color:var(--accent)}
+.webhook-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;font-size:.75rem;word-break:break-all;color:var(--green);margin:10px 0}
+.hint{font-size:.72rem;color:var(--muted);line-height:1.6;margin-top:6px}
+.twiml-box{background:#0a0a10;border:1px solid var(--border);border-radius:var(--rs);padding:14px;font-family:monospace;font-size:.72rem;color:#7dd3fc;white-space:pre;overflow-x:auto;margin:10px 0}
+/* ── BUTTONS ── */
+.btn-primary{background:var(--accent);border:none;color:#000;font-size:.85rem;font-weight:600;padding:10px 20px;border-radius:var(--rs);cursor:pointer}
+.btn-primary:hover{background:#e6b93a}
+.btn-secondary{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:.85rem;padding:10px 20px;border-radius:var(--rs);cursor:pointer}
+.btn-secondary:hover{background:var(--border)}
+.copy-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);font-size:.72rem;padding:4px 10px;border-radius:6px;cursor:pointer}
+.copy-btn:hover{color:var(--text)}
+.ok-msg{color:var(--green);font-size:.78rem;margin-top:6px}
+/* ── MODALS ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;backdrop-filter:blur(4px)}
+.overlay.hidden{display:none}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:26px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:1.1rem;font-weight:700;color:var(--accent);margin-bottom:18px}
+.modal-actions{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
+/* ── RECORDER ── */
+.rec-area{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:18px;text-align:center;margin:12px 0}
+.rec-status{font-size:.82rem;color:var(--muted);margin-bottom:12px}
+.rec-status.live{color:var(--red);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.rec-viz{display:flex;align-items:center;justify-content:center;gap:4px;height:44px;margin-bottom:14px}
+.viz-b{width:5px;background:var(--border);border-radius:3px;height:6px;transition:height .1s}
+.viz-b.active{background:var(--red);animation:vbar .5s ease-in-out infinite alternate}
+.viz-b:nth-child(2){animation-delay:.08s}.viz-b:nth-child(3){animation-delay:.16s}
+.viz-b:nth-child(4){animation-delay:.04s}.viz-b:nth-child(5){animation-delay:.12s}
+.viz-b:nth-child(6){animation-delay:.20s}.viz-b:nth-child(7){animation-delay:.06s}
+.viz-b:nth-child(8){animation-delay:.14s}
+@keyframes vbar{from{height:4px}to{height:32px}}
+.rec-btns{display:flex;gap:10px;justify-content:center;margin-bottom:10px}
+.rec-btn-start{background:var(--red);border:none;color:#fff;font-size:.85rem;padding:10px 22px;border-radius:var(--rs);cursor:pointer}
+.rec-btn-stop{background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:.85rem;padding:10px 22px;border-radius:var(--rs);cursor:pointer}
+audio{width:100%;margin:8px 0}
+.upload-sep{text-align:center;color:var(--muted);font-size:.75rem;margin:10px 0}
+input[type=file]{color:var(--text);font-size:.78rem}
+/* ── EMPTY ── */
+.empty{text-align:center;padding:50px 20px;color:var(--muted)}
+.empty .ei{font-size:3rem;margin-bottom:10px}
+/* ── SECTION HEADER ── */
+.sec-hdr{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.sec-hdr h2{font-size:1.3rem;font-weight:700;flex:1}
+@media(max-width:600px){
+  .topbar{padding:10px 14px}
+  .tab-pane{padding:14px}
+  .btn-grid{grid-template-columns:1fr}
+  .modal{padding:18px}
+}
+</style>
+</head>
+<body>
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<!-- ══ LOGIN ══ -->
+<div id="loginScreen" class="screen active">
+  <div class="login-wrap">
+    <div class="login-icon">📞</div>
+    <h1>Family Hotline</h1>
+    <p class="login-sub">Host Control Panel — Enter your PIN</p>
+    <div class="pin-dots">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
+    </div>
+    <div class="numpad">
+      <button class="nk" data-n="1">1</button>
+      <button class="nk" data-n="2">2</button>
+      <button class="nk" data-n="3">3</button>
+      <button class="nk" data-n="4">4</button>
+      <button class="nk" data-n="5">5</button>
+      <button class="nk" data-n="6">6</button>
+      <button class="nk" data-n="7">7</button>
+      <button class="nk" data-n="8">8</button>
+      <button class="nk" data-n="9">9</button>
+      <button class="nk del" id="delBtn">⌫</button>
+      <button class="nk" data-n="0">0</button>
+      <button class="nk go" id="goBtn">✓</button>
+    </div>
+    <div id="loginErr" class="login-err hidden">Wrong PIN — try again</div>
+  </div>
+</div>
 
-:root {
-  --bg:        #0f0f13;
-  --surface:   #1a1a22;
-  --surface2:  #22222e;
-  --border:    #2e2e3e;
-  --accent:    #f5c842;
-  --accent2:   #e87040;
-  --green:     #4ade80;
-  --red:       #f87171;
-  --text:      #f0eeea;
-  --muted:     #7a7a92;
-  --radius:    12px;
-  --radius-sm: 8px;
-}
+<!-- ══ DASHBOARD ══ -->
+<div id="dashboard" class="screen">
+  <header class="topbar">
+    <span class="topbar-brand">📞 Family Hotline</span>
+    <button class="tab-btn active" data-tab="menus">🗂 Menus</button>
+    <button class="tab-btn" data-tab="voicemails">📬 Voicemails <span id="vmBadge" class="badge hidden"></span></button>
+    <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
+    <button class="logout-btn" id="logoutBtn">Sign out</button>
+  </header>
 
-html, body {
-  height: 100%;
-  font-family: 'DM Mono', monospace;
-  background: var(--bg);
-  color: var(--text);
-  overflow-x: hidden;
-}
+  <!-- MENUS TAB -->
+  <div id="tab-menus" class="tab-pane active">
+    <div class="bc" id="bc"></div>
+    <div id="menuPanel"></div>
+  </div>
 
-/* ── Screens ────────────────────────────────────────────── */
-.screen { display: none; min-height: 100vh; }
-.screen.active { display: flex; flex-direction: column; }
+  <!-- VOICEMAILS TAB -->
+  <div id="tab-voicemails" class="tab-pane">
+    <div class="sec-hdr">
+      <h2>📬 Voicemails</h2>
+      <button class="btn-secondary" style="font-size:.78rem;padding:6px 14px" onclick="loadVoicemails()">↻ Refresh</button>
+    </div>
+    <div id="vmList" class="vm-list"></div>
+  </div>
 
-/* ── LOGIN ──────────────────────────────────────────────── */
-#loginScreen {
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(ellipse at 60% 40%, #1e1830 0%, #0f0f13 70%);
-}
+  <!-- SETTINGS TAB -->
+  <div id="tab-settings" class="tab-pane">
+    <div class="settings-wrap">
+      <div class="s-card">
+        <h3>⚙️ General Settings</h3>
+        <div class="field"><label>Host Phone Number (for call-transfer buttons)</label><input id="hostNumber" type="tel" placeholder="+12125551234"/></div>
+        <div class="field"><label>Change PIN (4 digits)</label><input id="newPin" type="password" maxlength="4" placeholder="New PIN"/></div>
+        <div class="field"><label>Coming Soon message (when a button has no recording)</label><input id="comingSoon" type="text" placeholder="This option is coming soon!"/></div>
+        <button class="btn-primary" id="saveSettings">💾 Save Settings</button>
+        <div id="settingsOk" class="ok-msg hidden">✓ Saved!</div>
+      </div>
 
-.login-wrap {
-  text-align: center;
-  width: 340px;
-}
+      <div class="s-card">
+        <h3>📞 Twilio Webhook URLs</h3>
+        <p style="font-size:.78rem;color:var(--muted);margin-bottom:10px">Paste these into Twilio exactly as shown.</p>
+        <p style="font-size:.75rem;color:var(--muted)">When a call comes in → Webhook:</p>
+        <div class="webhook-box" id="webhookMain"></div>
+        <button class="copy-btn" onclick="copyText('webhookMain')">Copy</button>
+        <p class="hint">In Twilio → Phone Numbers → Your Number → Voice → "A call comes in" → set to Webhook → paste the URL above → HTTP POST → Save.</p>
+      </div>
 
-.login-icon {
-  font-size: 64px;
-  margin-bottom: 12px;
-  filter: drop-shadow(0 0 24px rgba(245,200,66,.4));
-  animation: float 3s ease-in-out infinite;
-}
-@keyframes float {
-  0%,100% { transform: translateY(0); }
-  50%      { transform: translateY(-8px); }
-}
+      <div class="s-card">
+        <h3>📋 Your TwiML Bins</h3>
+        <p class="hint" style="margin-bottom:10px">Each menu below needs its own TwiML Bin in Twilio. Copy each one, create a new TwiML Bin, paste it in, and save the Bin URL.</p>
+        <div id="twimlBins"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
-.login-wrap h1 {
-  font-family: 'Fraunces', serif;
-  font-size: 2.4rem;
-  font-weight: 900;
-  color: var(--accent);
-  letter-spacing: -1px;
-}
-.subtitle { color: var(--muted); margin-bottom: 32px; font-size: .85rem; }
+<!-- ══ MODAL: Add/Edit Button ══ -->
+<div id="btnModal" class="overlay hidden">
+  <div class="modal">
+    <h3 id="btnModalTitle">Add Button</h3>
+    <div class="field"><label>Button Number (1–20)</label><input id="bDigit" type="number" min="1" max="20" placeholder="e.g. 1"/></div>
+    <div class="field"><label>Label / Name</label><input id="bLabel" type="text" placeholder="e.g. Uncle's Hotline"/></div>
+    <div class="field"><label>Button Type</label>
+      <select id="bType" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:.9rem;padding:9px 13px;border-radius:var(--rs);outline:none">
+        <option value="recording">🔊 Play a Recording</option>
+        <option value="submenu">📂 Open a Sub-Menu</option>
+        <option value="forward">📞 Forward Call to a Number</option>
+        <option value="transfer">🔀 Transfer Call (with whisper)</option>
+        <option value="voicemail">📬 Let Caller Leave Voicemail</option>
+      </select>
+    </div>
+    <div id="fwdFields" class="hidden">
+      <div class="field"><label>Phone Number to forward/transfer to</label><input id="bForwardTo" type="tel" placeholder="+12125551234"/></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeBtnModal()">Cancel</button>
+      <button class="btn-primary" id="saveBtnBtn">Save Button</button>
+    </div>
+  </div>
+</div>
 
-.pin-display {
-  letter-spacing: 20px;
-  font-size: 2rem;
-  color: var(--accent);
-  margin-bottom: 28px;
-  font-family: 'Fraunces', serif;
-  min-height: 48px;
-}
+<!-- ══ MODAL: Record ══ -->
+<div id="recModal" class="overlay hidden">
+  <div class="modal">
+    <h3 id="recModalTitle">Record Audio</h3>
+    <p id="recModalSub" style="font-size:.78rem;color:var(--muted);margin-top:-12px;margin-bottom:12px"></p>
+    <div class="rec-area" id="recArea">
+      <div class="rec-status" id="recStatus">Ready — press Record to start</div>
+      <div class="rec-viz" id="recViz">
+        <div class="viz-b"></div><div class="viz-b"></div><div class="viz-b"></div>
+        <div class="viz-b"></div><div class="viz-b"></div><div class="viz-b"></div>
+        <div class="viz-b"></div><div class="viz-b"></div>
+      </div>
+      <div class="rec-btns">
+        <button class="rec-btn-start" id="recStart">🔴 Record</button>
+        <button class="rec-btn-stop hidden" id="recStop">⏹ Stop</button>
+      </div>
+      <audio id="recPreview" controls class="hidden"></audio>
+      <div id="recSaveRow" class="hidden" style="display:flex;gap:8px;justify-content:center">
+        <button class="btn-secondary" id="recRedo">↩ Redo</button>
+        <button class="btn-primary" id="recSave">💾 Save</button>
+      </div>
+    </div>
+    <div class="upload-sep">— or upload an audio file —</div>
+    <input type="file" id="uploadFile" accept="audio/*"/>
+    <div style="margin-top:10px;text-align:right">
+      <button class="btn-secondary" onclick="closeRecModal()">✕ Close</button>
+    </div>
+  </div>
+</div>
 
-.numpad {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
+<!-- Firebase SDKs -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, onValue, push } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getStorage, ref as sref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-.num-btn {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-family: 'DM Mono', monospace;
-  font-size: 1.3rem;
-  padding: 18px;
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: background .15s, transform .1s;
-}
-.num-btn:hover  { background: var(--surface2); }
-.num-btn:active { transform: scale(.95); }
-.del-btn        { color: var(--muted); }
-.enter-btn      { background: var(--accent); color: #000; font-size: 1.5rem; }
-.enter-btn:hover { background: #f0be2a; }
+// ── Firebase config ──────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyBj6EKbtnsp_LLtzbrcYCENsY4IjFwlncM",
+  authDomain: "ai-1-46a29.firebaseapp.com",
+  databaseURL: "https://ai-1-46a29-default-rtdb.firebaseio.com",
+  projectId: "ai-1-46a29",
+  storageBucket: "ai-1-46a29.firebasestorage.app",
+  messagingSenderId: "899054806724",
+  appId: "1:899054806724:web:6d6170771ea5fe4d1bcb91",
+  measurementId: "G-HH25NJP4YY"
+};
 
-.error-msg {
-  color: var(--red);
-  font-size: .85rem;
-  margin-top: 8px;
-  animation: shake .3s;
-}
-@keyframes shake {
-  0%,100% { transform: translateX(0); }
-  25%,75%  { transform: translateX(-8px); }
-  50%      { transform: translateX(8px); }
-}
+const app     = initializeApp(firebaseConfig);
+const db      = getDatabase(app);
+const storage = getStorage(app);
 
-/* ── DASHBOARD ──────────────────────────────────────────── */
-#dashboard { min-height: 100vh; }
+// ── State ────────────────────────────────────────────────────────────────────
+let PIN          = '2011';
+let pinEntry     = '';
+let currentMenuId= 'main';
+let breadcrumbStack = [{ id:'main', label:'Main Menu' }];
+let hotlineData  = {};
+let recContext   = {}; // {menuId, digit, isGreeting, isWhisper}
+let mediaRec     = null;
+let recChunks    = [];
+let recBlob      = null;
 
-.topbar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 14px 24px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
-}
-
-.topbar-left { display: flex; align-items: center; gap: 10px; }
-.topbar-icon { font-size: 1.4rem; }
-.topbar-title {
-  font-family: 'Fraunces', serif;
-  font-size: 1.3rem;
-  font-weight: 700;
-  color: var(--accent);
-}
-
-.topbar-nav { display: flex; gap: 6px; margin-left: auto; }
-
-.tab-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  font-family: 'DM Mono', monospace;
-  font-size: .78rem;
-  padding: 7px 14px;
-  border-radius: 20px;
-  cursor: pointer;
-  transition: all .2s;
-  position: relative;
-}
-.tab-btn:hover  { color: var(--text); border-color: var(--accent); }
-.tab-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
-
-.badge {
-  background: var(--red);
-  color: #fff;
-  border-radius: 50%;
-  font-size: .65rem;
-  padding: 1px 5px;
-  position: absolute;
-  top: -4px;
-  right: -4px;
-}
-
-.logout-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  font-family: 'DM Mono', monospace;
-  font-size: .75rem;
-  padding: 6px 12px;
-  border-radius: 20px;
-  cursor: pointer;
-}
-.logout-btn:hover { color: var(--red); border-color: var(--red); }
-
-.tab-content { display: none; padding: 24px; flex: 1; }
-.tab-content.active { display: block; }
-
-/* ── BREADCRUMB ─────────────────────────────────────────── */
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 20px;
-  font-size: .8rem;
-  color: var(--muted);
-  flex-wrap: wrap;
-}
-.breadcrumb-item {
-  cursor: pointer;
-  color: var(--accent);
-  transition: opacity .2s;
-}
-.breadcrumb-item:hover { opacity: .7; }
-.breadcrumb-sep { color: var(--border); }
-.breadcrumb-current { color: var(--text); }
-
-/* ── MENU PANEL ─────────────────────────────────────────── */
-.menu-panel {}
-
-.menu-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-.menu-header h2 {
-  font-family: 'Fraunces', serif;
-  font-size: 1.5rem;
-  font-weight: 700;
-}
-
-.greeting-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--accent);
-  padding: 14px 18px;
-  border-radius: var(--radius);
-  margin-bottom: 20px;
-}
-.greeting-label { flex: 1; font-size: .85rem; color: var(--muted); }
-.greeting-label strong { color: var(--text); display: block; font-size: .95rem; }
-
-.buttons-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 14px;
-  margin-bottom: 20px;
-}
-
-.btn-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-  transition: border-color .2s, box-shadow .2s;
-  position: relative;
-}
-.btn-card:hover {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
-}
-
-.btn-card-top {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-.btn-digit {
-  background: var(--accent);
-  color: #000;
-  font-family: 'Fraunces', serif;
-  font-size: 1.3rem;
-  font-weight: 900;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.btn-info { flex: 1; min-width: 0; }
-.btn-label {
-  font-size: .95rem;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.btn-type {
-  font-size: .72rem;
-  color: var(--muted);
-  margin-top: 2px;
-}
-
-.btn-card-actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.action-btn {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-family: 'DM Mono', monospace;
-  font-size: .72rem;
-  padding: 5px 10px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background .15s;
-  white-space: nowrap;
-}
-.action-btn:hover    { background: var(--border); }
-.action-btn.primary  { background: var(--accent); color: #000; border-color: var(--accent); }
-.action-btn.danger   { color: var(--red); border-color: var(--red); }
-.action-btn.danger:hover { background: rgba(248,113,113,.15); }
-.action-btn.green    { color: var(--green); border-color: var(--green); }
-.action-btn.green:hover { background: rgba(74,222,128,.1); }
-
-.add-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 14px;
-  background: transparent;
-  border: 2px dashed var(--border);
-  color: var(--muted);
-  font-family: 'DM Mono', monospace;
-  font-size: .85rem;
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: all .2s;
-}
-.add-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-/* ── VOICEMAILS ─────────────────────────────────────────── */
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-.section-header h2 {
-  font-family: 'Fraunces', serif;
-  font-size: 1.5rem;
-}
-.refresh-btn {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  font-family: 'DM Mono', monospace;
-  font-size: .8rem;
-  padding: 6px 12px;
-  border-radius: 20px;
-  cursor: pointer;
+// ── Bootstrap DB ─────────────────────────────────────────────────────────────
+async function bootstrap() {
+  const snap = await get(ref(db, 'hotline'));
+  if (!snap.exists()) {
+    const defaults = {
+      settings: { pin:'2011', hostNumber:'', comingSoon:'This option is coming soon. Please try again later.' },
+      menus: {
+        main: { id:'main', label:'Main Menu', greeting:null, buttons:{} }
+      }
+    };
+    await set(ref(db,'hotline'), defaults);
+  }
+  // live listener
+  onValue(ref(db,'hotline'), snap => {
+    hotlineData = snap.val() || {};
+    PIN = hotlineData.settings?.pin || '2011';
+    renderCurrentMenu();
+    updateVmBadge();
+    renderTwimlBins();
+  });
 }
 
-.voicemail-list { display: flex; flex-direction: column; gap: 10px; }
+// ── PIN LOGIN ────────────────────────────────────────────────────────────────
+document.querySelectorAll('.nk[data-n]').forEach(b => b.addEventListener('click', () => addPin(b.dataset.n)));
+document.getElementById('delBtn').addEventListener('click', delPin);
+document.getElementById('goBtn').addEventListener('click', checkPin);
 
-.vm-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
+function addPin(n) {
+  if (pinEntry.length >= 4) return;
+  pinEntry += n;
+  updatePinDots();
+  if (pinEntry.length === 4) checkPin();
 }
-.vm-card.new { border-left: 4px solid var(--accent2); }
-.vm-meta { flex: 1; min-width: 180px; }
-.vm-from { font-size: .9rem; font-weight: 500; }
-.vm-date { font-size: .75rem; color: var(--muted); margin-top: 2px; }
-.vm-duration { font-size: .75rem; color: var(--muted); }
-.vm-new-badge {
-  background: var(--accent2);
-  color: #fff;
-  font-size: .65rem;
-  padding: 2px 7px;
-  border-radius: 10px;
+function delPin() { pinEntry = pinEntry.slice(0,-1); updatePinDots(); }
+function updatePinDots() {
+  for (let i=0;i<4;i++) document.getElementById('d'+i).classList.toggle('filled', i < pinEntry.length);
 }
-
-.empty-state {
-  text-align: center;
-  color: var(--muted);
-  padding: 60px 20px;
-  font-size: .9rem;
-}
-.empty-state .empty-icon { font-size: 3rem; margin-bottom: 12px; }
-
-/* ── SETTINGS ───────────────────────────────────────────── */
-.settings-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 24px;
-  max-width: 540px;
-  margin-bottom: 20px;
-}
-.settings-card h2 {
-  font-family: 'Fraunces', serif;
-  font-size: 1.3rem;
-  margin-bottom: 20px;
-}
-label {
-  display: block;
-  font-size: .8rem;
-  color: var(--muted);
-  margin-bottom: 14px;
-}
-label input, label select {
-  display: block;
-  width: 100%;
-  margin-top: 6px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-family: 'DM Mono', monospace;
-  font-size: .9rem;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  outline: none;
-  transition: border-color .2s;
-}
-label input:focus, label select:focus { border-color: var(--accent); }
-
-.webhook-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--surface2);
-  padding: 12px;
-  border-radius: var(--radius-sm);
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.wh-label { font-size: .75rem; color: var(--muted); width: 100%; }
-.wh-url {
-  flex: 1;
-  font-size: .75rem;
-  color: var(--green);
-  word-break: break-all;
-}
-.copy-btn {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-family: 'DM Mono', monospace;
-  font-size: .75rem;
-  padding: 5px 10px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-.hint { font-size: .75rem; color: var(--muted); margin-top: 6px; line-height: 1.5; }
-
-.save-btn {
-  background: var(--accent);
-  border: none;
-  color: #000;
-  font-family: 'DM Mono', monospace;
-  font-size: .85rem;
-  font-weight: 500;
-  padding: 11px 22px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background .2s;
-}
-.save-btn:hover { background: #f0be2a; }
-
-.cancel-btn {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-family: 'DM Mono', monospace;
-  font-size: .85rem;
-  padding: 11px 22px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-.cancel-btn.full-width { width: 100%; margin-top: 10px; }
-
-.success-msg { color: var(--green); font-size: .8rem; margin-top: 8px; }
-
-/* ── MODALS ─────────────────────────────────────────────── */
-.modal-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,.75);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: 16px;
-  backdrop-filter: blur(4px);
-}
-.modal-overlay.hidden { display: none; }
-
-.modal {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 28px;
-  width: 100%;
-  max-width: 460px;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-.modal h3 {
-  font-family: 'Fraunces', serif;
-  font-size: 1.3rem;
-  margin-bottom: 20px;
-  color: var(--accent);
-}
-.modal-subtitle {
-  font-size: .8rem;
-  color: var(--muted);
-  margin-top: -14px;
-  margin-bottom: 16px;
-}
-.modal-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 20px;
+function checkPin() {
+  if (pinEntry === PIN) {
+    document.getElementById('loginScreen').classList.remove('active');
+    document.getElementById('dashboard').classList.add('active');
+    loadSettings();
+    bootstrap();
+  } else {
+    const e = document.getElementById('loginErr');
+    e.classList.remove('hidden');
+    pinEntry=''; updatePinDots();
+    setTimeout(()=>e.classList.add('hidden'),2000);
+  }
 }
 
-/* ── RECORDER ───────────────────────────────────────────── */
-.recorder-area {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
-  text-align: center;
-  margin-bottom: 16px;
-}
-.recorder-status {
-  font-size: .85rem;
-  color: var(--muted);
-  margin-bottom: 14px;
-}
-.recorder-status.recording { color: var(--red); animation: pulse 1s infinite; }
-@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  document.getElementById('dashboard').classList.remove('active');
+  document.getElementById('loginScreen').classList.add('active');
+  pinEntry=''; updatePinDots();
+});
 
-.recorder-viz {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  height: 48px;
-  margin-bottom: 16px;
-}
-.viz-bar {
-  width: 5px;
-  background: var(--border);
-  border-radius: 3px;
-  height: 8px;
-  transition: height .1s;
-}
-.recording .viz-bar {
-  animation: bar 0.6s ease-in-out infinite alternate;
-  background: var(--red);
-}
-.viz-bar:nth-child(1) { animation-delay: 0s; }
-.viz-bar:nth-child(2) { animation-delay: .1s; }
-.viz-bar:nth-child(3) { animation-delay: .2s; }
-.viz-bar:nth-child(4) { animation-delay: .05s; }
-.viz-bar:nth-child(5) { animation-delay: .15s; }
-.viz-bar:nth-child(6) { animation-delay: .25s; }
-.viz-bar:nth-child(7) { animation-delay: .08s; }
-.viz-bar:nth-child(8) { animation-delay: .18s; }
-@keyframes bar {
-  from { height: 4px; }
-  to   { height: 36px; }
+// ── TABS ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  document.getElementById('tab-'+b.dataset.tab).classList.add('active');
+  if (b.dataset.tab==='voicemails') loadVoicemails();
+}));
+
+// ── RENDER MENU ──────────────────────────────────────────────────────────────
+function renderCurrentMenu() {
+  const menu = hotlineData.menus?.[currentMenuId];
+  if (!menu) return;
+  renderBreadcrumb();
+  const panel = document.getElementById('menuPanel');
+  const buttons = menu.buttons || {};
+
+  let html = `
+  <div class="greeting-bar">
+    <div class="greeting-info">
+      <strong>🎙 Menu Greeting</strong>
+      <span>${menu.greeting ? '✅ Recorded' : '⚠️ No greeting yet — callers will hear a default message'}</span>
+    </div>
+    <div class="gb-actions">
+      ${menu.greeting ? `<button class="ab success" onclick="playAudio('${menu.greeting}')">▶ Preview</button>` : ''}
+      <button class="ab primary" onclick="openRecModal({menuId:'${currentMenuId}',isGreeting:true})">🎙 ${menu.greeting?'Re-record':'Record Greeting'}</button>
+    </div>
+  </div>
+  <div class="btn-grid">`;
+
+  Object.values(buttons).sort((a,b)=>Number(a.digit)-Number(b.digit)).forEach(btn => {
+    const typeLabel = {recording:'🔊 Play Recording',submenu:'📂 Sub-Menu',forward:'📞 Call Forward',transfer:'🔀 Transfer',voicemail:'📬 Voicemail'}[btn.type]||btn.type;
+    const hasRec = btn.recording || btn.type==='submenu'||btn.type==='forward'||btn.type==='transfer'||btn.type==='voicemail';
+    html += `
+    <div class="btn-card">
+      <div class="btn-card-top">
+        <div class="btn-num">${btn.digit}</div>
+        <div>
+          <div class="btn-label">${btn.label||'Button '+btn.digit}</div>
+          <div class="btn-type-tag">${typeLabel}${btn.forwardTo?' → '+btn.forwardTo:''}</div>
+        </div>
+      </div>
+      <div class="btn-actions">
+        ${btn.type==='recording'?`<button class="ab primary" onclick="openRecModal({menuId:'${currentMenuId}',digit:'${btn.digit}'})">🎙 ${btn.recording?'Re-record':'Record'}</button>`:''}
+        ${btn.type==='recording'&&btn.recording?`<button class="ab success" onclick="playAudio('${btn.recording}')">▶ Play</button>`:''}
+        ${btn.type==='transfer'?`<button class="ab" onclick="openRecModal({menuId:'${currentMenuId}',digit:'${btn.digit}',isWhisper:true})">🔊 Whisper</button>`:''}
+        ${btn.type==='submenu'?`<button class="ab primary" onclick="openSubMenu('${btn.menuId||''}','${btn.label||'Sub-Menu'}')">📂 Open</button>`:''}
+        <button class="ab" onclick="editBtn('${btn.digit}')">✏️ Edit</button>
+        <button class="ab danger" onclick="deleteBtn('${btn.digit}')">🗑</button>
+      </div>
+    </div>`;
+  });
+
+  html += `</div>
+  <button class="add-card" onclick="openAddBtn()">＋ Add a Button</button>`;
+  panel.innerHTML = html;
 }
 
-.recorder-btns { display: flex; gap: 10px; justify-content: center; margin-bottom: 12px; }
-.rec-btn {
-  font-family: 'DM Mono', monospace;
-  font-size: .85rem;
-  padding: 10px 20px;
-  border-radius: var(--radius-sm);
-  border: none;
-  cursor: pointer;
+function renderBreadcrumb() {
+  const bc = document.getElementById('bc');
+  bc.innerHTML = breadcrumbStack.map((item,i) => {
+    if (i === breadcrumbStack.length-1) return `<span class="bc-cur">${item.label}</span>`;
+    return `<span class="bc-item" onclick="jumpToMenu(${i})">${item.label}</span><span class="bc-sep">›</span>`;
+  }).join('');
 }
-.rec-btn.record { background: var(--red); color: #fff; }
-.rec-btn.stop   { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
 
-#recorderPreview { width: 100%; margin-bottom: 10px; }
-#recorderActions { display: flex; gap: 10px; justify-content: center; }
-
-.upload-area {
-  text-align: center;
-  padding: 12px;
-  font-size: .8rem;
-  color: var(--muted);
+function jumpToMenu(idx) {
+  breadcrumbStack = breadcrumbStack.slice(0, idx+1);
+  currentMenuId = breadcrumbStack[breadcrumbStack.length-1].id;
+  renderCurrentMenu();
 }
-.upload-area input { margin-top: 8px; color: var(--text); font-size: .8rem; }
 
-/* ── UTILS ──────────────────────────────────────────────── */
-.hidden { display: none !important; }
+window.openSubMenu = function(menuId, label) {
+  if (!menuId || !hotlineData.menus?.[menuId]) {
+    alert('Sub-menu not created yet. Save the button first.');
+    return;
+  }
+  breadcrumbStack.push({ id:menuId, label });
+  currentMenuId = menuId;
+  renderCurrentMenu();
+};
 
-@media (max-width: 600px) {
-  .topbar { padding: 10px 14px; }
-  .topbar-nav { order: 3; width: 100%; }
-  .tab-btn { font-size: .7rem; padding: 6px 10px; }
-  .tab-content { padding: 14px; }
-  .buttons-grid { grid-template-columns: 1fr; }
-  .modal { padding: 20px; }
+window.playAudio = function(url) {
+  new Audio(url).play();
+};
+
+// ── ADD / EDIT BUTTON ────────────────────────────────────────────────────────
+let editingDigit = null;
+
+window.openAddBtn = function() {
+  editingDigit = null;
+  document.getElementById('btnModalTitle').textContent = 'Add Button';
+  document.getElementById('bDigit').value = '';
+  document.getElementById('bLabel').value = '';
+  document.getElementById('bType').value = 'recording';
+  document.getElementById('bForwardTo').value = '';
+  document.getElementById('fwdFields').classList.add('hidden');
+  document.getElementById('btnModal').classList.remove('hidden');
+};
+
+window.editBtn = function(digit) {
+  const btn = hotlineData.menus[currentMenuId].buttons[digit];
+  editingDigit = digit;
+  document.getElementById('btnModalTitle').textContent = 'Edit Button';
+  document.getElementById('bDigit').value = btn.digit;
+  document.getElementById('bLabel').value = btn.label||'';
+  document.getElementById('bType').value = btn.type||'recording';
+  document.getElementById('bForwardTo').value = btn.forwardTo||'';
+  toggleFwdFields(btn.type);
+  document.getElementById('btnModal').classList.remove('hidden');
+};
+
+document.getElementById('bType').addEventListener('change', e => toggleFwdFields(e.target.value));
+function toggleFwdFields(type) {
+  document.getElementById('fwdFields').classList.toggle('hidden', !['forward','transfer'].includes(type));
 }
+
+window.closeBtnModal = function() { document.getElementById('btnModal').classList.add('hidden'); };
+
+document.getElementById('saveBtnBtn').addEventListener('click', async () => {
+  const digit    = document.getElementById('bDigit').value.trim();
+  const label    = document.getElementById('bLabel').value.trim()||'Button '+digit;
+  const type     = document.getElementById('bType').value;
+  const forwardTo= document.getElementById('bForwardTo').value.trim();
+
+  if (!digit||isNaN(digit)||digit<1||digit>20) return alert('Enter a number 1–20');
+
+  const menu   = hotlineData.menus[currentMenuId];
+  const oldBtn = menu.buttons?.[digit]||{};
+
+  let menuIdTarget = oldBtn.menuId;
+  if (type==='submenu' && !menuIdTarget) {
+    menuIdTarget = 'menu_'+currentMenuId+'_'+digit+'_'+Date.now();
+    await set(ref(db,`hotline/menus/${menuIdTarget}`), { id:menuIdTarget, label, greeting:null, buttons:{} });
+  }
+
+  const btn = { digit, label, type, ...(forwardTo&&{forwardTo}), ...(menuIdTarget&&{menuId:menuIdTarget}) };
+  await set(ref(db,`hotline/menus/${currentMenuId}/buttons/${digit}`), btn);
+  closeBtnModal();
+});
+
+window.deleteBtn = async function(digit) {
+  if (!confirm('Delete button '+digit+'?')) return;
+  const btn = hotlineData.menus[currentMenuId].buttons[digit];
+  if (btn?.recording) try { await deleteObject(sref(storage, btn.recording)); } catch(e){}
+  if (btn?.menuId) await set(ref(db,`hotline/menus/${btn.menuId}`), null);
+  await set(ref(db,`hotline/menus/${currentMenuId}/buttons/${digit}`), null);
+};
+
+// ── RECORDER ─────────────────────────────────────────────────────────────────
+window.openRecModal = function(ctx) {
+  recContext = ctx;
+  recBlob    = null;
+  const titles = {
+    greeting: `Record Greeting for "${hotlineData.menus[ctx.menuId]?.label||ctx.menuId}"`,
+    whisper:  `Record Whisper for Button ${ctx.digit}`,
+    normal:   `Record Audio for Button ${ctx.digit}`
+  };
+  const key = ctx.isGreeting?'greeting':ctx.isWhisper?'whisper':'normal';
+  document.getElementById('recModalTitle').textContent = titles[key];
+  document.getElementById('recModalSub').textContent   = ctx.isWhisper?'Only the person receiving the transfer will hear this.':'';
+  resetRecorder();
+  document.getElementById('recModal').classList.remove('hidden');
+  document.getElementById('uploadFile').onchange = handleUpload;
+};
+window.closeRecModal = function() {
+  stopRecording();
+  document.getElementById('recModal').classList.add('hidden');
+};
+
+function resetRecorder() {
+  recBlob=null; recChunks=[];
+  document.getElementById('recStatus').textContent='Ready — press Record to start';
+  document.getElementById('recStatus').classList.remove('live');
+  document.getElementById('recStart').classList.remove('hidden');
+  document.getElementById('recStop').classList.add('hidden');
+  document.getElementById('recPreview').classList.add('hidden');
+  document.getElementById('recSaveRow').classList.add('hidden');
+  document.querySelectorAll('.viz-b').forEach(b=>b.classList.remove('active'));
+}
+
+document.getElementById('recStart').addEventListener('click', async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    mediaRec = new MediaRecorder(stream);
+    recChunks = [];
+    mediaRec.ondataavailable = e => recChunks.push(e.data);
+    mediaRec.onstop = () => {
+      recBlob = new Blob(recChunks, {type:'audio/webm'});
+      const url = URL.createObjectURL(recBlob);
+      const preview = document.getElementById('recPreview');
+      preview.src = url;
+      preview.classList.remove('hidden');
+      document.getElementById('recSaveRow').classList.remove('hidden');
+      document.getElementById('recStatus').textContent='Done! Preview your recording below.';
+      document.getElementById('recStatus').classList.remove('live');
+      document.querySelectorAll('.viz-b').forEach(b=>b.classList.remove('active'));
+      stream.getTracks().forEach(t=>t.stop());
+    };
+    mediaRec.start();
+    document.getElementById('recStart').classList.add('hidden');
+    document.getElementById('recStop').classList.remove('hidden');
+    document.getElementById('recStatus').textContent='🔴 Recording…';
+    document.getElementById('recStatus').classList.add('live');
+    document.querySelectorAll('.viz-b').forEach(b=>b.classList.add('active'));
+  } catch(e) {
+    alert('Microphone access denied. Please allow microphone access and try again.');
+  }
+});
+
+document.getElementById('recStop').addEventListener('click', stopRecording);
+function stopRecording() { if(mediaRec&&mediaRec.state!=='inactive') mediaRec.stop(); }
+
+document.getElementById('recRedo').addEventListener('click', resetRecorder);
+
+document.getElementById('recSave').addEventListener('click', async () => {
+  if (!recBlob) return;
+  await uploadAudio(recBlob, 'webm');
+});
+
+async function handleUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  await uploadAudio(file, file.name.split('.').pop());
+}
+
+async function uploadAudio(blob, ext) {
+  document.getElementById('recStatus').textContent = '⬆️ Uploading…';
+  const ctx      = recContext;
+  const fileName = `audio/${ctx.menuId}_${ctx.isGreeting?'greeting':ctx.isWhisper?'whisper_btn'+ctx.digit:'btn'+ctx.digit}_${Date.now()}.${ext}`;
+  const storRef  = sref(storage, fileName);
+  await uploadBytes(storRef, blob);
+  const url = await getDownloadURL(storRef);
+
+  if (ctx.isGreeting) {
+    await set(ref(db,`hotline/menus/${ctx.menuId}/greeting`), url);
+  } else if (ctx.isWhisper) {
+    await set(ref(db,`hotline/menus/${ctx.menuId}/buttons/${ctx.digit}/whisper`), url);
+  } else {
+    await set(ref(db,`hotline/menus/${ctx.menuId}/buttons/${ctx.digit}/recording`), url);
+  }
+  document.getElementById('recStatus').textContent = '✅ Saved!';
+  setTimeout(closeRecModal, 1000);
+}
+
+// ── VOICEMAILS ───────────────────────────────────────────────────────────────
+window.loadVoicemails = function() {
+  get(ref(db,'hotline/voicemails')).then(snap => {
+    const list  = document.getElementById('vmList');
+    const vms   = snap.val();
+    if (!vms) { list.innerHTML = '<div class="empty"><div class="ei">📭</div>No voicemails yet</div>'; return; }
+    const arr   = Object.values(vms).reverse();
+    list.innerHTML = arr.map(vm => `
+      <div class="vm-card ${vm.heard?'':'unheard'}">
+        <div class="vm-info">
+          <div class="vm-from">📞 ${vm.from||'Unknown caller'} ${vm.heard?'':'<span class="new-pill">NEW</span>'}</div>
+          <div class="vm-meta">${new Date(vm.date).toLocaleString()} · ${vm.duration||'?'}s</div>
+        </div>
+        <audio controls src="${vm.url}" style="height:36px" onplay="markHeard('${vm.id}')"></audio>
+      </div>`).join('');
+    updateVmBadge();
+  });
+};
+
+window.markHeard = async function(id) {
+  await set(ref(db,`hotline/voicemails/${id}/heard`), true);
+};
+
+function updateVmBadge() {
+  const vms   = hotlineData.voicemails||{};
+  const count = Object.values(vms).filter(v=>!v.heard).length;
+  const badge = document.getElementById('vmBadge');
+  if (count > 0) { badge.textContent=count; badge.classList.remove('hidden'); }
+  else badge.classList.add('hidden');
+}
+
+// ── SETTINGS ─────────────────────────────────────────────────────────────────
+function loadSettings() {
+  const s = hotlineData.settings||{};
+  document.getElementById('hostNumber').value  = s.hostNumber||'';
+  document.getElementById('newPin').value      = '';
+  document.getElementById('comingSoon').value  = s.comingSoon||'';
+  const base = window.location.origin;
+  document.getElementById('webhookMain').textContent = base+'/api/phone/start';
+}
+
+document.getElementById('saveSettings').addEventListener('click', async () => {
+  const updates = {};
+  const hn = document.getElementById('hostNumber').value.trim();
+  const np = document.getElementById('newPin').value.trim();
+  const cs = document.getElementById('comingSoon').value.trim();
+  if (hn) updates.hostNumber = hn;
+  if (np && np.length===4 && !isNaN(np)) updates.pin = np;
+  if (cs) updates.comingSoon = cs;
+  const curr = hotlineData.settings||{};
+  await set(ref(db,'hotline/settings'), {...curr,...updates});
+  const ok = document.getElementById('settingsOk');
+  ok.classList.remove('hidden');
+  setTimeout(()=>ok.classList.add('hidden'),2000);
+});
+
+window.copyText = function(id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(()=>alert('Copied!'));
+};
+
+// ── TWIML BINS GENERATOR ─────────────────────────────────────────────────────
+function renderTwimlBins() {
+  const container = document.getElementById('twimlBins');
+  if (!container||!hotlineData.menus) return;
+  const base      = window.location.origin;
+  let html        = '';
+
+  Object.values(hotlineData.menus).forEach(menu => {
+    const twiml = generateTwiml(menu, base);
+    html += `
+    <div style="margin-bottom:18px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <strong style="font-size:.85rem">${menu.label||menu.id}</strong>
+        <button class="copy-btn" onclick="copyTwiml('twiml_${menu.id}')">Copy TwiML</button>
+      </div>
+      <div class="twiml-box" id="twiml_${menu.id}">${escHtml(twiml)}</div>
+      <p class="hint">→ In Twilio, go to Explore Products → TwiML Bins → Create new TwiML Bin → paste the above → save → copy the Bin URL.</p>
+    </div>`;
+  });
+  container.innerHTML = html;
+}
+
+function generateTwiml(menu, base) {
+  const buttons  = menu.buttons||{};
+  const cs       = hotlineData.settings?.comingSoon||'This option is coming soon.';
+  const greeting = menu.greeting || null;
+
+  let inner = '';
+  if (greeting) inner += `\n    <Play>${greeting}</Play>`;
+  else inner += `\n    <Say>Welcome. Please press a number to continue.</Say>`;
+
+  // Build valid digit list
+  const digits = Object.keys(buttons).sort((a,b)=>Number(a)-Number(b));
+
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Gather numDigits="2" action="${base}/api/phone/input?menuId=${menu.id}" method="POST" timeout="10">${inner}
+  </Gather>
+  <Redirect>${base}/api/phone/menu?menuId=${menu.id}</Redirect>
+</Response>`;
+  return xml;
+}
+
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+window.copyTwiml = function(id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(()=>alert('TwiML copied! Now paste it into a new Twilio TwiML Bin.'));
+};
+
+// ── START ────────────────────────────────────────────────────────────────────
+bootstrap();
+</script>
+</body>
+</html>
