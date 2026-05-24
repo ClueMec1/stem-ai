@@ -1,1667 +1,738 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>STEMIX — AI Vocal Remover</title>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
-  <style>
-    :root {
-      --neon: #00ff41;
-      --neon-dim: #00cc33;
-      --neon-glow: 0 0 8px #00ff41, 0 0 20px #00ff4188, 0 0 40px #00ff4144;
-      --neon-glow-strong: 0 0 10px #00ff41, 0 0 30px #00ff41aa, 0 0 60px #00ff4166, 0 0 100px #00ff4133;
-      --bg: #000; --bg3: #0a120a;
-      --text: #b0ffb0; --text-dim: #4a7a4a;
-    }
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { background:var(--bg); color:var(--text); font-family:'Share Tech Mono',monospace; min-height:100vh; overflow-x:hidden; }
-    body::before { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,65,0.015) 2px,rgba(0,255,65,0.015) 4px); pointer-events:none; z-index:9999; }
-    body::after { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(0,255,65,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,65,0.04) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; }
-
-    .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:1000; display:flex; align-items:center; justify-content:center; }
-    .overlay.hidden { display:none; }
-    .modal { background:var(--bg3); border:1px solid var(--neon-dim); box-shadow:var(--neon-glow-strong); border-radius:6px; padding:36px 32px; width:100%; max-width:420px; text-align:center; position:relative; }
-    .modal-title { font-family:'Orbitron',monospace; font-size:1.1rem; color:var(--neon); text-shadow:var(--neon-glow); letter-spacing:0.2em; margin-bottom:8px; }
-    .modal-sub { font-size:0.65rem; color:var(--text-dim); letter-spacing:0.1em; margin-bottom:24px; line-height:1.6; }
-    .neon-input { width:100%; background:rgba(0,255,65,0.04); border:1px solid rgba(0,255,65,0.25); color:var(--neon); font-family:'Share Tech Mono',monospace; font-size:0.85rem; padding:12px 16px; border-radius:3px; outline:none; letter-spacing:0.1em; margin-bottom:14px; text-align:center; }
-    .neon-input::placeholder { color:var(--text-dim); }
-    .neon-input:focus { border-color:var(--neon); box-shadow:var(--neon-glow); }
-    .modal-btn { width:100%; background:transparent; border:2px solid var(--neon); box-shadow:var(--neon-glow-strong); color:var(--neon); font-family:'Orbitron',monospace; font-size:0.7rem; font-weight:700; letter-spacing:0.2em; padding:14px; cursor:pointer; border-radius:3px; text-transform:uppercase; transition:all 0.2s; }
-    .modal-btn:hover { background:rgba(0,255,65,0.08); }
-    .modal-err { font-size:0.6rem; color:rgba(255,100,100,0.85); margin-top:10px; min-height:18px; }
-
-    .ad-overlay { position:fixed; inset:0; background:#000; z-index:2000; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-    .ad-overlay.hidden { display:none; }
-    .ad-media-wrap { position:relative; width:100%; max-width:860px; }
-    .ad-media-wrap video, .ad-media-wrap audio { width:100%; border:1px solid rgba(0,255,65,0.2); border-radius:4px; }
-    .ad-label { font-family:'Orbitron',monospace; font-size:0.55rem; color:rgba(255,255,255,0.35); letter-spacing:0.2em; margin-bottom:12px; }
-    .ad-timer { font-family:'Orbitron',monospace; font-size:0.8rem; color:var(--neon); text-shadow:var(--neon-glow); margin-top:14px; letter-spacing:0.15em; }
-    .ad-skip-bar { position:fixed; bottom:20px; right:24px; z-index:2100; }
-    .ad-skip-btn { background:rgba(0,0,0,0.7); border:1px solid rgba(0,255,65,0.3); color:var(--text-dim); font-family:'Share Tech Mono',monospace; font-size:0.52rem; letter-spacing:0.1em; padding:7px 14px; border-radius:2px; cursor:pointer; transition:all 0.2s; }
-    .ad-skip-btn:hover { border-color:var(--neon); color:var(--neon); }
-
-    .skip-modal { position:fixed; bottom:64px; right:24px; z-index:2200; background:var(--bg3); border:1px solid var(--neon-dim); box-shadow:var(--neon-glow); border-radius:4px; padding:16px; width:240px; display:none; }
-    .skip-modal.visible { display:block; }
-    .skip-modal input { width:100%; background:rgba(0,255,65,0.04); border:1px solid rgba(0,255,65,0.25); color:var(--neon); font-family:'Share Tech Mono',monospace; font-size:0.75rem; padding:8px 10px; border-radius:2px; outline:none; letter-spacing:0.1em; margin-bottom:8px; text-align:center; }
-    .skip-modal input:focus { border-color:var(--neon); box-shadow:0 0 8px var(--neon); }
-    .skip-modal button { width:100%; background:transparent; border:1px solid var(--neon-dim); color:var(--neon); font-family:'Orbitron',monospace; font-size:0.52rem; letter-spacing:0.15em; padding:8px; cursor:pointer; border-radius:2px; text-transform:uppercase; }
-    .skip-modal button:hover { background:rgba(0,255,65,0.08); }
-    .skip-err { font-size:0.56rem; color:rgba(255,100,100,0.8); margin-top:6px; min-height:14px; }
-
-    .container { position:relative; z-index:1; max-width:940px; margin:0 auto; padding:34px 20px 100px; }
-    header { text-align:center; margin-bottom:32px; position:relative; }
-    .logo { font-family:'Orbitron',monospace; font-size:clamp(2.2rem,7vw,4.5rem); font-weight:900; color:var(--neon); text-shadow:var(--neon-glow-strong); letter-spacing:0.2em; animation:flicker 8s infinite; }
-    .logo span { color:#fff; text-shadow:0 0 10px #fff,0 0 30px #00ff4188; }
-    .tagline { font-size:0.7rem; color:var(--text-dim); letter-spacing:0.4em; margin-top:6px; text-transform:uppercase; }
-    @keyframes flicker { 0%,95%,100%{opacity:1}96%{opacity:.85}97%{opacity:1}98%{opacity:.7}99%{opacity:1} }
-
-    .top-bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px; flex-wrap:wrap; }
-    .user-pill { display:flex; align-items:center; gap:8px; background:rgba(0,255,65,0.05); border:1px solid rgba(0,255,65,0.2); border-radius:20px; padding:6px 14px; font-size:0.6rem; color:var(--text-dim); }
-    .user-pill .uname { color:var(--neon); text-shadow:0 0 6px var(--neon); font-family:'Orbitron',monospace; font-size:0.58rem; }
-    .logout-btn { background:transparent; border:1px solid rgba(0,255,65,0.15); color:var(--text-dim); font-family:'Share Tech Mono',monospace; font-size:0.54rem; padding:4px 10px; cursor:pointer; border-radius:2px; transition:all 0.2s; }
-    .logout-btn:hover { border-color:var(--neon-dim); color:var(--neon); }
-    .ai-badge { display:inline-flex; align-items:center; gap:7px; background:rgba(0,255,65,0.05); border:1px solid rgba(0,255,65,0.18); border-radius:20px; padding:5px 14px; font-size:0.55rem; color:var(--text-dim); }
-    .ai-dot { width:7px; height:7px; border-radius:50%; background:var(--neon); box-shadow:var(--neon-glow); animation:pulse 2s infinite; }
-    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(0.8)} }
-
-    .host-panel { background:linear-gradient(135deg,rgba(255,107,0,0.06),rgba(0,0,0,0)); border:1px solid rgba(255,107,0,0.3); border-radius:4px; padding:18px 20px; margin-bottom:22px; display:none; }
-    .host-panel.visible { display:block; }
-    .host-title { font-family:'Orbitron',monospace; font-size:0.65rem; letter-spacing:0.2em; color:#ff6b00; text-shadow:0 0 10px #ff6b00; margin-bottom:14px; }
-    .host-row { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-    .host-label { font-size:0.62rem; color:rgba(255,180,100,0.7); }
-
-    .toggle-wrap { display:flex; align-items:center; gap:10px; }
-    .toggle { position:relative; width:44px; height:24px; cursor:pointer; }
-    .toggle input { opacity:0; width:0; height:0; }
-    .toggle-slider { position:absolute; inset:0; background:rgba(255,107,0,0.15); border:1px solid rgba(255,107,0,0.3); border-radius:24px; transition:0.3s; }
-    .toggle-slider:before { content:''; position:absolute; width:18px; height:18px; left:2px; top:2px; background:rgba(255,107,0,0.5); border-radius:50%; transition:0.3s; }
-    .toggle input:checked + .toggle-slider { background:rgba(255,107,0,0.25); border-color:#ff6b00; }
-    .toggle input:checked + .toggle-slider:before { transform:translateX(20px); background:#ff6b00; box-shadow:0 0 8px #ff6b00; }
-    .toggle-label { font-family:'Orbitron',monospace; font-size:0.56rem; letter-spacing:0.1em; color:rgba(255,180,100,0.7); }
-
-    .ad-upload-area { margin-top:14px; border:1px dashed rgba(255,107,0,0.3); border-radius:3px; padding:14px; text-align:center; cursor:pointer; transition:all 0.2s; }
-    .ad-upload-area:hover { background:rgba(255,107,0,0.04); border-color:rgba(255,107,0,0.6); }
-    .ad-upload-area p { font-size:0.6rem; color:rgba(255,180,100,0.6); }
-    .ad-current { font-size:0.58rem; color:rgba(255,180,100,0.5); margin-top:8px; }
-    #adFileInput { display:none; }
-
-    .host-exit-btn { background:transparent; border:1px solid rgba(255,107,0,0.3); color:rgba(255,107,0,0.6); font-family:'Share Tech Mono',monospace; font-size:0.54rem; padding:5px 12px; cursor:pointer; border-radius:2px; transition:all 0.2s; margin-left:auto; display:block; margin-top:12px; }
-    .host-exit-btn:hover { border-color:#ff6b00; color:#ff6b00; }
-
-    .tabs { display:flex; gap:0; margin-bottom:26px; border-bottom:1px solid rgba(0,255,65,0.15); }
-    .tab-btn { background:transparent; border:none; color:var(--text-dim); font-family:'Orbitron',monospace; font-size:0.58rem; letter-spacing:0.2em; padding:11px 22px; cursor:pointer; text-transform:uppercase; border-bottom:2px solid transparent; transition:all 0.2s; }
-    .tab-btn:hover { color:var(--text); }
-    .tab-btn.active { color:var(--neon); text-shadow:var(--neon-glow); border-bottom-color:var(--neon); }
-    .tab-panel { display:none; }
-    .tab-panel.active { display:block; }
-
-    .upload-zone { border:1px solid var(--neon-dim); box-shadow:var(--neon-glow),inset 0 0 30px rgba(0,255,65,0.03); border-radius:4px; padding:50px 40px; text-align:center; cursor:pointer; transition:all 0.3s; margin-bottom:22px; }
-    .upload-zone:hover,.upload-zone.drag-over { background:rgba(0,255,65,0.03); box-shadow:var(--neon-glow-strong),inset 0 0 60px rgba(0,255,65,0.05); }
-    .upload-icon { font-size:2.6rem; margin-bottom:12px; display:block; filter:drop-shadow(0 0 8px var(--neon)); }
-    .upload-zone h2 { font-family:'Orbitron',monospace; font-size:0.92rem; color:var(--neon); text-shadow:var(--neon-glow); margin-bottom:8px; letter-spacing:0.15em; }
-    .upload-zone p { font-size:0.68rem; color:var(--text-dim); letter-spacing:0.08em; }
-    #fileInput { display:none; }
-
-    .file-info { display:none; background:var(--bg3); border:1px solid rgba(0,255,65,0.2); border-radius:3px; padding:12px 17px; margin-bottom:16px; font-size:0.68rem; color:var(--text-dim); align-items:center; gap:12px; }
-    .file-info.visible { display:flex; }
-    .file-badge { background:var(--neon); color:#000; font-family:'Orbitron',monospace; font-size:0.46rem; font-weight:700; padding:3px 7px; border-radius:2px; }
-    .file-name { flex:1; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-
-    .section-label { font-family:'Orbitron',monospace; font-size:0.56rem; letter-spacing:0.28em; color:var(--text-dim); text-transform:uppercase; margin-bottom:10px; }
-    .mode-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:9px; margin-bottom:20px; }
-    .mode-btn { background:transparent; border:1px solid var(--neon-dim); box-shadow:var(--neon-glow); color:var(--text); font-family:'Orbitron',monospace; font-size:0.55rem; letter-spacing:0.1em; padding:12px 7px; cursor:pointer; border-radius:3px; transition:all 0.2s; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; gap:5px; }
-    .mode-btn .mode-icon { font-size:1.2rem; }
-    .mode-btn:hover,.mode-btn.active { background:rgba(0,255,65,0.08); border-color:var(--neon); color:var(--neon); box-shadow:var(--neon-glow-strong); text-shadow:0 0 8px var(--neon); }
-
-    .process-btn { width:100%; background:transparent; border:2px solid var(--neon); box-shadow:var(--neon-glow-strong); color:var(--neon); font-family:'Orbitron',monospace; font-size:0.82rem; font-weight:700; letter-spacing:0.3em; padding:18px; cursor:pointer; border-radius:3px; text-transform:uppercase; transition:all 0.2s; text-shadow:var(--neon-glow); margin-bottom:24px; position:relative; overflow:hidden; }
-    .process-btn::after { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(0,255,65,0.12),transparent); transition:left 0.5s; }
-    .process-btn:hover::after { left:100%; }
-    .process-btn:hover { background:rgba(0,255,65,0.08); }
-    .process-btn:disabled { opacity:0.3; cursor:not-allowed; box-shadow:none; }
-
-    .progress-section { display:none; margin-bottom:24px; }
-    .progress-section.visible { display:block; }
-    .progress-label { font-size:0.58rem; letter-spacing:0.25em; color:var(--text-dim); margin-bottom:8px; display:flex; justify-content:space-between; }
-    .progress-bar-wrap { background:rgba(0,255,65,0.05); border:1px solid rgba(0,255,65,0.2); border-radius:2px; height:9px; overflow:hidden; }
-    .progress-bar { height:100%; background:linear-gradient(90deg,var(--neon-dim),var(--neon)); box-shadow:0 0 10px var(--neon); width:0%; transition:width 0.6s ease; border-radius:2px; }
-    .status-text { font-size:0.64rem; color:var(--neon); text-shadow:0 0 8px var(--neon); margin-top:9px; letter-spacing:0.1em; }
-    .status-text.blink { animation:blink 1s infinite; }
-    @keyframes blink { 0%,100%{opacity:1}50%{opacity:.35} }
-
-    .error-box { display:none; border:1px solid rgba(255,60,60,0.4); background:rgba(255,60,60,0.05); border-radius:3px; padding:13px 17px; font-size:0.62rem; color:rgba(255,130,130,0.9); line-height:1.7; margin-bottom:14px; }
-    .error-box.visible { display:block; }
-    .save-indicator { display:none; background:rgba(0,255,65,0.07); border:1px solid rgba(0,255,65,0.2); border-radius:3px; padding:9px 15px; font-size:0.6rem; color:var(--neon); letter-spacing:0.08em; margin-bottom:13px; text-align:center; }
-    .save-indicator.visible { display:block; }
-
-    .results { display:none; }
-    .results.visible { display:block; }
-    .results-header { font-family:'Orbitron',monospace; font-size:0.58rem; letter-spacing:0.25em; color:var(--text-dim); text-transform:uppercase; margin-bottom:15px; padding-bottom:8px; border-bottom:1px solid rgba(0,255,65,0.14); }
-
-    .mixer-panel { background:var(--bg3); border:1px solid rgba(0,255,65,0.2); border-radius:4px; padding:20px; margin-bottom:13px; }
-    .mixer-title { font-family:'Orbitron',monospace; font-size:0.62rem; letter-spacing:0.18em; color:var(--neon); text-shadow:0 0 6px var(--neon); margin-bottom:15px; }
-    .track-row { display:grid; grid-template-columns:106px 1fr 83px; align-items:center; gap:12px; margin-bottom:14px; }
-    .track-label { font-family:'Orbitron',monospace; font-size:0.51rem; letter-spacing:0.08em; color:var(--neon); display:flex; flex-direction:column; gap:3px; }
-    .track-sub { color:var(--text-dim); font-size:0.47rem; font-family:'Share Tech Mono',monospace; }
-    .waveform-wrap { position:relative; height:60px; background:rgba(0,255,65,0.03); border:1px solid rgba(0,255,65,0.1); border-radius:2px; overflow:hidden; cursor:pointer; }
-    canvas.waveform { width:100%; height:100%; display:block; }
-    .playhead { position:absolute; top:0; bottom:0; width:2px; background:rgba(255,255,255,0.9); box-shadow:0 0 6px #fff; left:0; pointer-events:none; }
-    .vol-col { display:flex; flex-direction:column; align-items:center; gap:4px; }
-    .vol-label { font-size:0.5rem; color:var(--text-dim); }
-    .vol-val { font-family:'Orbitron',monospace; font-size:0.55rem; color:var(--neon); text-shadow:0 0 6px var(--neon); }
-    input.vol-slider { -webkit-appearance:none; writing-mode:vertical-lr; direction:rtl; width:6px; height:66px; padding:0; background:rgba(0,255,65,0.15); border-radius:3px; outline:none; margin:0 auto; display:block; cursor:pointer; }
-    input.vol-slider::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--neon); box-shadow:var(--neon-glow); cursor:pointer; }
-    input.vol-slider::-moz-range-thumb { width:14px; height:14px; border-radius:50%; background:var(--neon); box-shadow:var(--neon-glow); cursor:pointer; border:none; }
-    .mixer-controls { display:flex; align-items:center; gap:13px; margin-top:15px; padding-top:14px; border-top:1px solid rgba(0,255,65,0.1); }
-    .big-play-btn { width:54px; height:54px; border-radius:50%; border:2px solid var(--neon); box-shadow:var(--neon-glow-strong); background:transparent; color:var(--neon); font-size:1.3rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0; }
-    .big-play-btn:hover { background:rgba(0,255,65,0.1); }
-    .big-play-btn.playing { border-color:#fff; box-shadow:0 0 10px #fff,0 0 30px rgba(255,255,255,0.25); color:#fff; }
-    .scrubber-wrap { flex:1; display:flex; flex-direction:column; gap:5px; }
-    .scrubber { -webkit-appearance:none; width:100%; height:4px; background:rgba(0,255,65,0.15); border-radius:2px; outline:none; cursor:pointer; }
-    .scrubber::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--neon); box-shadow:var(--neon-glow); cursor:pointer; }
-    .scrubber::-moz-range-thumb { width:14px; height:14px; border-radius:50%; background:var(--neon); box-shadow:var(--neon-glow); cursor:pointer; border:none; }
-    .time-row { display:flex; justify-content:space-between; font-size:0.52rem; color:var(--text-dim); }
-    .mixer-time { font-family:'Orbitron',monospace; font-size:0.78rem; color:var(--neon); text-shadow:var(--neon-glow); min-width:48px; text-align:right; }
-    .export-section { margin-top:17px; padding-top:13px; border-top:1px solid rgba(0,255,65,0.1); }
-    .export-title { font-family:'Orbitron',monospace; font-size:0.56rem; letter-spacing:0.18em; color:var(--text-dim); margin-bottom:10px; }
-    .export-btns { display:flex; gap:9px; flex-wrap:wrap; }
-    .export-btn { flex:1; min-width:125px; background:transparent; border:1px solid var(--neon-dim); box-shadow:var(--neon-glow); color:var(--neon); font-family:'Orbitron',monospace; font-size:0.5rem; letter-spacing:0.1em; padding:11px 8px; cursor:pointer; border-radius:3px; text-transform:uppercase; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:5px; transition:all 0.2s; }
-    .export-btn:hover { background:rgba(0,255,65,0.08); box-shadow:var(--neon-glow-strong); }
-    .export-btn.mixed { border-color:var(--neon); border-width:2px; box-shadow:var(--neon-glow-strong); }
-    .stem-card { background:var(--bg3); border:1px solid rgba(0,255,65,0.14); border-radius:3px; padding:13px 16px; margin-bottom:9px; }
-    .stem-top { display:flex; align-items:center; gap:11px; }
-    .stem-icon { font-size:1.3rem; filter:drop-shadow(0 0 4px var(--neon)); }
-    .stem-info { flex:1; }
-    .stem-name { font-family:'Orbitron',monospace; font-size:0.6rem; color:var(--neon); text-shadow:0 0 6px var(--neon); letter-spacing:0.1em; margin-bottom:2px; }
-    .stem-desc { font-size:0.57rem; color:var(--text-dim); }
-    audio { width:100%; height:30px; margin-top:8px; filter:invert(1) hue-rotate(90deg) brightness(0.8); }
-    .dl-btn { background:transparent; border:1px solid var(--neon-dim); box-shadow:var(--neon-glow); color:var(--neon); font-family:'Orbitron',monospace; font-size:0.47rem; letter-spacing:0.1em; padding:6px 11px; cursor:pointer; border-radius:2px; text-transform:uppercase; text-decoration:none; transition:all 0.2s; white-space:nowrap; }
-    .dl-btn:hover { background:rgba(0,255,65,0.08); box-shadow:var(--neon-glow-strong); }
-    .reset-btn { background:transparent; border:1px solid rgba(0,255,65,0.2); color:var(--text-dim); font-family:'Share Tech Mono',monospace; font-size:0.6rem; letter-spacing:0.18em; padding:9px 18px; cursor:pointer; border-radius:2px; text-transform:uppercase; margin-top:16px; transition:all 0.2s; }
-    .reset-btn:hover { border-color:var(--neon-dim); color:var(--neon); box-shadow:var(--neon-glow); }
-
-    .history-empty { text-align:center; padding:55px 20px; color:var(--text-dim); font-size:0.68rem; letter-spacing:0.08em; line-height:2; }
-    .history-empty .big-icon { font-size:2.8rem; display:block; margin-bottom:14px; opacity:0.35; }
-    .history-filter { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
-    .filter-label { font-size:0.56rem; color:var(--text-dim); letter-spacing:0.1em; }
-    .filter-input { background:rgba(0,255,65,0.04); border:1px solid rgba(0,255,65,0.2); color:var(--text); font-family:'Share Tech Mono',monospace; font-size:0.62rem; padding:7px 12px; border-radius:3px; outline:none; width:200px; }
-    .filter-input:focus { border-color:var(--neon); box-shadow:var(--neon-glow); }
-    .history-card { background:var(--bg3); border:1px solid rgba(0,255,65,0.12); border-radius:4px; padding:15px 17px; margin-bottom:11px; transition:border-color 0.2s; }
-    .history-card:hover { border-color:rgba(0,255,65,0.3); }
-    .hcard-top { display:flex; align-items:center; gap:11px; margin-bottom:10px; }
-    .hcard-icon { font-size:1.5rem; filter:drop-shadow(0 0 4px var(--neon)); }
-    .hcard-info { flex:1; min-width:0; }
-    .hcard-name { font-family:'Orbitron',monospace; font-size:0.6rem; color:var(--neon); text-shadow:0 0 6px var(--neon); letter-spacing:0.08em; margin-bottom:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .hcard-meta { font-size:0.54rem; color:var(--text-dim); }
-    .hcard-date { font-size:0.52rem; color:var(--text-dim); white-space:nowrap; }
-    .hcard-stems { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:8px; }
-    .hcard-stem-btn { background:transparent; border:1px solid rgba(0,255,65,0.18); color:var(--text-dim); font-family:'Orbitron',monospace; font-size:0.44rem; letter-spacing:0.08em; padding:5px 9px; cursor:pointer; border-radius:2px; text-transform:uppercase; text-decoration:none; transition:all 0.2s; display:inline-flex; align-items:center; gap:4px; }
-    .hcard-stem-btn:hover { border-color:var(--neon); color:var(--neon); box-shadow:var(--neon-glow); }
-    .hcard-actions { display:flex; justify-content:flex-end; gap:8px; }
-    .hcard-delete { background:transparent; border:1px solid rgba(255,60,60,0.2); color:rgba(255,100,100,0.45); font-size:0.48rem; padding:5px 10px; cursor:pointer; border-radius:2px; font-family:'Orbitron',monospace; letter-spacing:0.08em; transition:all 0.2s; }
-    .hcard-delete:hover { border-color:rgba(255,60,60,0.6); color:rgba(255,100,100,0.9); }
-    .host-only-badge { font-size:0.44rem; background:rgba(255,107,0,0.1); border:1px solid rgba(255,107,0,0.3); color:#ff6b00; padding:3px 8px; border-radius:2px; font-family:'Orbitron',monospace; letter-spacing:0.1em; }
-    .history-loading { text-align:center; padding:38px; color:var(--text-dim); font-size:0.64rem; letter-spacing:0.1em; }
-
-    .corner-decor { position:fixed; width:55px; height:55px; opacity:0.4; z-index:2; }
-    .corner-decor.tl { top:12px; left:12px; border-top:1px solid var(--neon); border-left:1px solid var(--neon); }
-    .corner-decor.tr { top:12px; right:12px; border-top:1px solid var(--neon); border-right:1px solid var(--neon); }
-    .corner-decor.bl { bottom:12px; left:12px; border-bottom:1px solid var(--neon); border-left:1px solid var(--neon); }
-    .corner-decor.br { bottom:12px; right:12px; border-bottom:1px solid var(--neon); border-right:1px solid var(--neon); }
-
-    @media(max-width:600px) {
-      .track-row { grid-template-columns:74px 1fr 64px; }
-      .export-btns { flex-direction:column; }
-      .tab-btn { padding:9px 13px; font-size:0.5rem; }
-    }
-
-    /* ══ INTRO ANIMATION ══════════════════════════════ */
-    #introBg { position:absolute; inset:0; z-index:0; }
-    .intro-corners { position:absolute; inset:0; z-index:2; pointer-events:none; }
-    .icorner { position:absolute; width:40px; height:40px; opacity:0.5; }
-    .icorner.tl { top:16px; left:16px; border-top:1px solid #00ff41; border-left:1px solid #00ff41; }
-    .icorner.tr { top:16px; right:16px; border-top:1px solid #00ff41; border-right:1px solid #00ff41; }
-    .icorner.bl { bottom:16px; left:16px; border-bottom:1px solid #00ff41; border-left:1px solid #00ff41; }
-    .icorner.br { bottom:16px; right:16px; border-bottom:1px solid #00ff41; border-right:1px solid #00ff41; }
-
-    .intro-scene {
-      position:relative; z-index:3;
-      display:flex; flex-direction:column; align-items:center; justify-content:center;
-      width:100%; padding:20px;
-    }
-
-    .intro-logo-wrap {
-      text-align:center;
-      opacity:0; transform:scale(0.7);
-      animation: introLogoIn 1.2s cubic-bezier(0.16,1,0.3,1) 0.4s forwards;
-    }
-    @keyframes introLogoIn { to { opacity:1; transform:scale(1); } }
-
-    .intro-logo {
-      font-family:'Orbitron',monospace;
-      font-size:clamp(2.5rem,10vw,6rem);
-      font-weight:900; color:#00ff41; letter-spacing:0.25em;
-      text-shadow:0 0 10px #00ff41,0 0 30px #00ff4199,0 0 80px #00ff4144;
-      animation:introLogoPulse 3s ease-in-out 1.6s infinite;
-    }
-    .intro-logo span { color:#fff; text-shadow:0 0 12px #fff,0 0 40px #00ff4188; }
-    @keyframes introLogoPulse {
-      0%,100%{text-shadow:0 0 10px #00ff41,0 0 30px #00ff4199,0 0 80px #00ff4144;}
-      50%{text-shadow:0 0 20px #00ff41,0 0 60px #00ff41cc,0 0 120px #00ff4166;}
-    }
-    .intro-tagline {
-      font-size:clamp(0.45rem,1.8vw,0.7rem); letter-spacing:0.45em; color:#4a7a4a;
-      text-transform:uppercase; text-align:center; margin-top:8px;
-      opacity:0; animation:introFadeUp 1s ease 1.4s forwards;
-    }
-    @keyframes introFadeUp {
-      from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)}
-    }
-
-    .intro-wave-wrap {
-      margin-top:30px; width:min(560px,85vw); height:70px;
-      opacity:0; animation:introFadeUp 1s ease 1.8s forwards;
-    }
-    #introWave { width:100%; height:100%; }
-
-    .intro-presented {
-      margin-top:22px; text-align:center;
-      opacity:0; transition:opacity 1.2s ease;
-    }
-    .intro-presented.show { opacity:1; }
-    .intro-presented-by {
-      font-size:clamp(0.44rem,1.4vw,0.58rem); letter-spacing:0.4em;
-      color:#2a5a2a; text-transform:uppercase; margin-bottom:4px;
-    }
-    .intro-presented-name {
-      font-family:'Orbitron',monospace;
-      font-size:clamp(0.85rem,3vw,1.5rem); font-weight:700;
-      color:#00ff41; letter-spacing:0.2em; text-transform:uppercase;
-      text-shadow:0 0 10px #00ff41,0 0 30px #00ff4166;
-    }
-
-    .intro-seq-wrap {
-      margin-top:22px; width:min(480px,80vw); text-align:left;
-      opacity:0; animation:introFadeUp 1s ease 2.2s forwards;
-    }
-    .intro-seq-line {
-      font-size:clamp(0.44rem,1.3vw,0.6rem); color:#2a5a2a;
-      letter-spacing:0.1em; line-height:2; opacity:0;
-    }
-    .intro-seq-line.active { color:#00ff41; text-shadow:0 0 8px #00ff41; opacity:1; }
-    .intro-seq-line.done   { color:#1a6a1a; opacity:1; }
-
-    .intro-bar-wrap {
-      margin-top:22px; width:min(480px,80vw);
-      opacity:0; animation:introFadeUp 1s ease 2.4s forwards;
-    }
-    .intro-bar-label {
-      display:flex; justify-content:space-between;
-      font-size:0.52rem; color:#2a5a2a; letter-spacing:0.18em; margin-bottom:7px;
-    }
-    .intro-bar-label span:last-child { color:#00ff41; text-shadow:0 0 6px #00ff41; }
-    .intro-bar-outer {
-      height:4px; background:rgba(0,255,65,0.08);
-      border:1px solid rgba(0,255,65,0.2); border-radius:2px; overflow:hidden;
-    }
-    .intro-bar-inner {
-      height:100%; background:linear-gradient(90deg,#00cc33,#00ff41);
-      box-shadow:0 0 10px #00ff41; border-radius:2px; width:0%;
-      transition:width 0.4s ease;
-    }
-
-    .intro-ready {
-      position:absolute; inset:0; z-index:10;
-      display:flex; flex-direction:column; align-items:center; justify-content:center;
-      background:#000; opacity:0; pointer-events:none; transition:opacity 0.8s ease;
-    }
-    .intro-ready.show { opacity:1; pointer-events:all; }
-    .intro-ready-title {
-      font-family:'Orbitron',monospace;
-      font-size:clamp(1.5rem,6vw,3.5rem); font-weight:900; color:#00ff41;
-      text-shadow:0 0 20px #00ff41,0 0 60px #00ff4188; letter-spacing:0.2em;
-      animation:introReadyPulse 1.5s ease-in-out infinite;
-    }
-    @keyframes introReadyPulse { 0%,100%{transform:scale(1)}50%{transform:scale(1.04)} }
-    .intro-ready-sub {
-      font-size:clamp(0.5rem,1.8vw,0.75rem); color:#4a7a4a;
-      letter-spacing:0.28em; margin-top:12px; text-transform:uppercase;
-    }
-    .intro-ready-dots { display:flex; gap:10px; margin-top:26px; }
-    .irdot {
-      width:8px; height:8px; border-radius:50%;
-      background:#00ff41; box-shadow:0 0 8px #00ff41;
-      animation:irdotP 1s ease-in-out infinite;
-    }
-    .irdot:nth-child(2){animation-delay:0.2s}
-    .irdot:nth-child(3){animation-delay:0.4s}
-    @keyframes irdotP{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.3;transform:scale(0.6)}}
-
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Family Hotline Control Panel</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d14;--surface:#16161f;--surface2:#1e1e2a;--border:#2a2a3a;
+  --accent:#f5c842;--accent2:#e8704a;--green:#4ade80;--red:#f87171;--blue:#60a5fa;
+  --text:#f0eeea;--muted:#7a7a9a;--r:12px;--rs:8px;
+}
+html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden}
+.hidden{display:none!important}
+/* ── SCREENS ── */
+.screen{display:none;min-height:100vh;flex-direction:column}
+.screen.active{display:flex}
+/* ── LOGIN ── */
+#loginScreen{align-items:center;justify-content:center;background:radial-gradient(ellipse at 60% 40%,#1a1230 0%,#0d0d14 70%)}
+.login-wrap{text-align:center;width:320px}
+.login-icon{font-size:72px;margin-bottom:8px;animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.login-wrap h1{font-size:2rem;font-weight:800;color:var(--accent);margin-bottom:4px}
+.login-sub{color:var(--muted);font-size:.85rem;margin-bottom:28px}
+.pin-dots{display:flex;justify-content:center;gap:14px;margin-bottom:24px}
+.pin-dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:all .2s}
+.pin-dot.filled{background:var(--accent);border-color:var(--accent)}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.nk{background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:1.4rem;font-weight:600;padding:18px;border-radius:var(--r);cursor:pointer;transition:background .15s,transform .1s}
+.nk:hover{background:var(--surface2)}
+.nk:active{transform:scale(.93)}
+.nk.del{font-size:1.1rem;color:var(--muted)}
+.nk.go{background:var(--accent);color:#000;font-size:1.2rem}
+.nk.go:hover{background:#e6b93a}
+.login-err{color:var(--red);font-size:.82rem;margin-top:6px;animation:shake .35s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%,75%{transform:translateX(-8px)}50%{transform:translateX(8px)}}
+/* ── TOPBAR ── */
+.topbar{display:flex;align-items:center;gap:12px;padding:13px 22px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.topbar-brand{font-size:1.2rem;font-weight:800;color:var(--accent);margin-right:auto}
+.tab-btn{background:transparent;border:1px solid var(--border);color:var(--muted);font-size:.75rem;padding:7px 14px;border-radius:20px;cursor:pointer;transition:all .2s;position:relative}
+.tab-btn:hover{color:var(--text);border-color:var(--accent)}
+.tab-btn.active{background:var(--accent);color:#000;border-color:var(--accent)}
+.badge{background:var(--red);color:#fff;border-radius:50%;font-size:.6rem;padding:1px 5px;position:absolute;top:-4px;right:-4px}
+.logout-btn{background:transparent;border:1px solid var(--border);color:var(--muted);font-size:.75rem;padding:6px 12px;border-radius:20px;cursor:pointer}
+.logout-btn:hover{color:var(--red);border-color:var(--red)}
+/* ── TABS ── */
+.tab-pane{display:none;padding:22px;flex:1}
+.tab-pane.active{display:block}
+/* ── BREADCRUMB ── */
+.bc{display:flex;align-items:center;gap:8px;margin-bottom:18px;font-size:.78rem;color:var(--muted);flex-wrap:wrap}
+.bc-item{cursor:pointer;color:var(--accent)}
+.bc-item:hover{text-decoration:underline}
+.bc-sep{color:var(--border)}
+.bc-cur{color:var(--text)}
+/* ── GREETING BAR ── */
+.greeting-bar{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:var(--r);padding:14px 18px;display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+.greeting-info{flex:1}
+.greeting-info strong{display:block;font-size:.95rem;margin-bottom:2px}
+.greeting-info span{font-size:.75rem;color:var(--muted)}
+.gb-actions{display:flex;gap:8px}
+/* ── BUTTONS GRID ── */
+.btn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:13px;margin-bottom:16px}
+.btn-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;transition:border-color .2s}
+.btn-card:hover{border-color:var(--accent)}
+.btn-card-top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.btn-num{background:var(--accent);color:#000;font-size:1.2rem;font-weight:900;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.btn-label{font-size:.95rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn-type-tag{font-size:.7rem;color:var(--muted);margin-top:2px}
+.btn-actions{display:flex;gap:6px;flex-wrap:wrap}
+.ab{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:.72rem;padding:5px 10px;border-radius:var(--rs);cursor:pointer;transition:background .15s;white-space:nowrap}
+.ab:hover{background:var(--border)}
+.ab.primary{background:var(--accent);color:#000;border-color:var(--accent)}
+.ab.danger{color:var(--red);border-color:transparent}
+.ab.danger:hover{background:rgba(248,113,113,.15);border-color:var(--red)}
+.ab.success{color:var(--green);border-color:transparent}
+.ab.success:hover{background:rgba(74,222,128,.1);border-color:var(--green)}
+.add-card{background:transparent;border:2px dashed var(--border);color:var(--muted);font-size:.85rem;border-radius:var(--r);padding:20px;cursor:pointer;transition:all .2s;text-align:center;width:100%}
+.add-card:hover{border-color:var(--accent);color:var(--accent)}
+/* ── VOICEMAILS ── */
+.vm-list{display:flex;flex-direction:column;gap:10px}
+.vm-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.vm-card.unheard{border-left:4px solid var(--accent2)}
+.vm-info{flex:1;min-width:150px}
+.vm-from{font-size:.9rem;font-weight:600}
+.vm-meta{font-size:.72rem;color:var(--muted);margin-top:2px}
+.new-pill{background:var(--accent2);color:#fff;font-size:.62rem;padding:2px 7px;border-radius:10px}
+/* ── SETTINGS ── */
+.settings-wrap{max-width:520px;display:flex;flex-direction:column;gap:18px}
+.s-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px}
+.s-card h3{font-size:1rem;font-weight:700;margin-bottom:16px;color:var(--accent)}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:.75rem;color:var(--muted);margin-bottom:5px}
+.field input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:.9rem;padding:9px 13px;border-radius:var(--rs);outline:none;transition:border-color .2s}
+.field input:focus{border-color:var(--accent)}
+.webhook-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;font-size:.75rem;word-break:break-all;color:var(--green);margin:10px 0}
+.hint{font-size:.72rem;color:var(--muted);line-height:1.6;margin-top:6px}
+.twiml-box{background:#0a0a10;border:1px solid var(--border);border-radius:var(--rs);padding:14px;font-family:monospace;font-size:.72rem;color:#7dd3fc;white-space:pre;overflow-x:auto;margin:10px 0}
+/* ── BUTTONS ── */
+.btn-primary{background:var(--accent);border:none;color:#000;font-size:.85rem;font-weight:600;padding:10px 20px;border-radius:var(--rs);cursor:pointer}
+.btn-primary:hover{background:#e6b93a}
+.btn-secondary{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:.85rem;padding:10px 20px;border-radius:var(--rs);cursor:pointer}
+.btn-secondary:hover{background:var(--border)}
+.copy-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);font-size:.72rem;padding:4px 10px;border-radius:6px;cursor:pointer}
+.copy-btn:hover{color:var(--text)}
+.ok-msg{color:var(--green);font-size:.78rem;margin-top:6px}
+/* ── MODALS ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;backdrop-filter:blur(4px)}
+.overlay.hidden{display:none}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:26px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:1.1rem;font-weight:700;color:var(--accent);margin-bottom:18px}
+.modal-actions{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
+/* ── RECORDER ── */
+.rec-area{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:18px;text-align:center;margin:12px 0}
+.rec-status{font-size:.82rem;color:var(--muted);margin-bottom:12px}
+.rec-status.live{color:var(--red);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.rec-viz{display:flex;align-items:center;justify-content:center;gap:4px;height:44px;margin-bottom:14px}
+.viz-b{width:5px;background:var(--border);border-radius:3px;height:6px;transition:height .1s}
+.viz-b.active{background:var(--red);animation:vbar .5s ease-in-out infinite alternate}
+.viz-b:nth-child(2){animation-delay:.08s}.viz-b:nth-child(3){animation-delay:.16s}
+.viz-b:nth-child(4){animation-delay:.04s}.viz-b:nth-child(5){animation-delay:.12s}
+.viz-b:nth-child(6){animation-delay:.20s}.viz-b:nth-child(7){animation-delay:.06s}
+.viz-b:nth-child(8){animation-delay:.14s}
+@keyframes vbar{from{height:4px}to{height:32px}}
+.rec-btns{display:flex;gap:10px;justify-content:center;margin-bottom:10px}
+.rec-btn-start{background:var(--red);border:none;color:#fff;font-size:.85rem;padding:10px 22px;border-radius:var(--rs);cursor:pointer}
+.rec-btn-stop{background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:.85rem;padding:10px 22px;border-radius:var(--rs);cursor:pointer}
+audio{width:100%;margin:8px 0}
+.upload-sep{text-align:center;color:var(--muted);font-size:.75rem;margin:10px 0}
+input[type=file]{color:var(--text);font-size:.78rem}
+/* ── EMPTY ── */
+.empty{text-align:center;padding:50px 20px;color:var(--muted)}
+.empty .ei{font-size:3rem;margin-bottom:10px}
+/* ── SECTION HEADER ── */
+.sec-hdr{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.sec-hdr h2{font-size:1.3rem;font-weight:700;flex:1}
+@media(max-width:600px){
+  .topbar{padding:10px 14px}
+  .tab-pane{padding:14px}
+  .btn-grid{grid-template-columns:1fr}
+  .modal{padding:18px}
+}
+</style>
 </head>
 <body>
-  <div class="corner-decor tl"></div><div class="corner-decor tr"></div>
-  <div class="corner-decor bl"></div><div class="corner-decor br"></div>
 
-  <div class="overlay" id="loginOverlay">
-    <div class="modal">
-      <div class="modal-title">STEM<span style="color:#fff">IX</span></div>
-      <div class="modal-sub">Enter your details to get started.<br/>Your history is saved privately and you'll get an email when your stems are ready.</div>
-      <input class="neon-input" id="loginInput" type="text" placeholder="Your username" maxlength="30"/>
-      <input class="neon-input" id="loginEmail" type="email" placeholder="Your email address" maxlength="100"/>
-      <button class="modal-btn" id="loginBtn">Enter STEMIX</button>
-      <div class="modal-err" id="loginErr"></div>
+<!-- ══ LOGIN ══ -->
+<div id="loginScreen" class="screen active">
+  <div class="login-wrap">
+    <div class="login-icon">📞</div>
+    <h1>Family Hotline</h1>
+    <p class="login-sub">Host Control Panel — Enter your PIN</p>
+    <div class="pin-dots">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
     </div>
+    <div class="numpad">
+      <button class="nk" data-n="1">1</button>
+      <button class="nk" data-n="2">2</button>
+      <button class="nk" data-n="3">3</button>
+      <button class="nk" data-n="4">4</button>
+      <button class="nk" data-n="5">5</button>
+      <button class="nk" data-n="6">6</button>
+      <button class="nk" data-n="7">7</button>
+      <button class="nk" data-n="8">8</button>
+      <button class="nk" data-n="9">9</button>
+      <button class="nk del" id="delBtn">⌫</button>
+      <button class="nk" data-n="0">0</button>
+      <button class="nk go" id="goBtn">✓</button>
+    </div>
+    <div id="loginErr" class="login-err hidden">Wrong PIN — try again</div>
+  </div>
+</div>
+
+<!-- ══ DASHBOARD ══ -->
+<div id="dashboard" class="screen">
+  <header class="topbar">
+    <span class="topbar-brand">📞 Family Hotline</span>
+    <button class="tab-btn active" data-tab="menus">🗂 Menus</button>
+    <button class="tab-btn" data-tab="voicemails">📬 Voicemails <span id="vmBadge" class="badge hidden"></span></button>
+    <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
+    <button class="logout-btn" id="logoutBtn">Sign out</button>
+  </header>
+
+  <!-- MENUS TAB -->
+  <div id="tab-menus" class="tab-pane active">
+    <div class="bc" id="bc"></div>
+    <div id="menuPanel"></div>
   </div>
 
-  <!-- ══ ANIMATED INTRO OVERLAY ══ -->
-  <div class="ad-overlay hidden" id="adOverlay">
-    <canvas id="introBg"></canvas>
-
-    <div class="intro-corners">
-      <div class="icorner tl"></div><div class="icorner tr"></div>
-      <div class="icorner bl"></div><div class="icorner br"></div>
+  <!-- VOICEMAILS TAB -->
+  <div id="tab-voicemails" class="tab-pane">
+    <div class="sec-hdr">
+      <h2>📬 Voicemails</h2>
+      <button class="btn-secondary" style="font-size:.78rem;padding:6px 14px" onclick="loadVoicemails()">↻ Refresh</button>
     </div>
-
-    <div class="intro-scene" id="introScene">
-      <div class="intro-logo-wrap">
-        <div class="intro-logo">STEM<span>IX</span></div>
-        <div class="intro-tagline">AI Vocal Remover &amp; Stem Splitter</div>
-      </div>
-
-      <div class="intro-wave-wrap">
-        <canvas id="introWave"></canvas>
-      </div>
-
-      <div class="intro-presented" id="introPresentedWrap">
-        <div class="intro-presented-by">Presented by</div>
-        <div class="intro-presented-name">Michael Neuman</div>
-      </div>
-
-      <div class="intro-seq-wrap" id="introSeqWrap"></div>
-
-      <div class="intro-bar-wrap">
-        <div class="intro-bar-label">
-          <span>INITIALIZING AI ENGINE</span>
-          <span id="introPctLabel">0%</span>
-        </div>
-        <div class="intro-bar-outer"><div class="intro-bar-inner" id="introBarInner"></div></div>
-      </div>
-    </div>
-
-    <div class="intro-ready" id="introReady">
-      <div class="intro-ready-title">⬡ &nbsp;READY</div>
-      <div class="intro-ready-sub">AI Engine Online — Processing Enabled</div>
-      <div class="intro-ready-dots">
-        <div class="irdot"></div><div class="irdot"></div><div class="irdot"></div>
-      </div>
-    </div>
-
-    <div class="ad-skip-bar" id="userSkipBar" style="display:none;">
-      <button class="ad-skip-btn" id="userSkipBtn">⬡ Skip Intro</button>
-    </div>
-    <div class="ad-skip-bar" style="bottom:50px;">
-      <button class="ad-skip-btn" id="hostSkipBtn">⬡ Skip (Host only)</button>
-    </div>
+    <div id="vmList" class="vm-list"></div>
   </div>
 
-  <div class="skip-modal" id="skipModal">
-    <input type="password" id="skipPassInput" placeholder="Host password" maxlength="20"/>
-    <button id="skipBtn">Skip Ad</button>
-    <div class="skip-err" id="skipErr"></div>
+  <!-- SETTINGS TAB -->
+  <div id="tab-settings" class="tab-pane">
+    <div class="settings-wrap">
+      <div class="s-card">
+        <h3>⚙️ General Settings</h3>
+        <div class="field"><label>Host Phone Number (for call-transfer buttons)</label><input id="hostNumber" type="tel" placeholder="+12125551234"/></div>
+        <div class="field"><label>Change PIN (4 digits)</label><input id="newPin" type="password" maxlength="4" placeholder="New PIN"/></div>
+        <div class="field"><label>Coming Soon message (when a button has no recording)</label><input id="comingSoon" type="text" placeholder="This option is coming soon!"/></div>
+        <button class="btn-primary" id="saveSettings">💾 Save Settings</button>
+        <div id="settingsOk" class="ok-msg hidden">✓ Saved!</div>
+      </div>
+
+      <div class="s-card">
+        <h3>📞 Twilio Webhook URLs</h3>
+        <p style="font-size:.78rem;color:var(--muted);margin-bottom:10px">Paste these into Twilio exactly as shown.</p>
+        <p style="font-size:.75rem;color:var(--muted)">When a call comes in → Webhook:</p>
+        <div class="webhook-box" id="webhookMain"></div>
+        <button class="copy-btn" onclick="copyText('webhookMain')">Copy</button>
+        <p class="hint">In Twilio → Phone Numbers → Your Number → Voice → "A call comes in" → set to Webhook → paste the URL above → HTTP POST → Save.</p>
+      </div>
+
+      <div class="s-card">
+        <h3>📋 Your TwiML Bins</h3>
+        <p class="hint" style="margin-bottom:10px">Each menu below needs its own TwiML Bin in Twilio. Copy each one, create a new TwiML Bin, paste it in, and save the Bin URL.</p>
+        <div id="twimlBins"></div>
+      </div>
+    </div>
   </div>
+</div>
 
-  <div class="overlay hidden" id="hostOverlay">
-    <div class="modal">
-      <div class="modal-title" style="color:#ff6b00;text-shadow:0 0 12px #ff6b00;">HOST MODE</div>
-      <div class="modal-sub">Enter the host password to unlock admin controls.</div>
-      <input class="neon-input" id="hostPassInput" type="password" placeholder="Host password" maxlength="20"
-        style="border-color:rgba(255,107,0,0.4);color:#ff6b00;"/>
-      <button class="modal-btn" id="hostUnlockBtn" style="border-color:#ff6b00;color:#ff6b00;text-shadow:0 0 8px #ff6b00;">Unlock Host Mode</button>
-      <div class="modal-err" id="hostErr"></div>
-      <button id="hostCancelBtn" style="background:transparent;border:none;color:var(--text-dim);font-size:0.58rem;margin-top:14px;cursor:pointer;">Cancel</button>
+<!-- ══ MODAL: Add/Edit Button ══ -->
+<div id="btnModal" class="overlay hidden">
+  <div class="modal">
+    <h3 id="btnModalTitle">Add Button</h3>
+    <div class="field"><label>Button Number (1–20)</label><input id="bDigit" type="number" min="1" max="20" placeholder="e.g. 1"/></div>
+    <div class="field"><label>Label / Name</label><input id="bLabel" type="text" placeholder="e.g. Uncle's Hotline"/></div>
+    <div class="field"><label>Button Type</label>
+      <select id="bType" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:.9rem;padding:9px 13px;border-radius:var(--rs);outline:none">
+        <option value="recording">🔊 Play a Recording</option>
+        <option value="submenu">📂 Open a Sub-Menu</option>
+        <option value="forward">📞 Forward Call to a Number</option>
+        <option value="transfer">🔀 Transfer Call (with whisper)</option>
+        <option value="voicemail">📬 Let Caller Leave Voicemail</option>
+      </select>
+    </div>
+    <div id="fwdFields" class="hidden">
+      <div class="field"><label>Phone Number to forward/transfer to</label><input id="bForwardTo" type="tel" placeholder="+12125551234"/></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeBtnModal()">Cancel</button>
+      <button class="btn-primary" id="saveBtnBtn">Save Button</button>
     </div>
   </div>
+</div>
 
-  <div class="container" id="mainApp" style="display:none;">
-    <header>
-      <div class="logo">STEM<span>IX</span></div>
-      <div class="tagline">AI Vocal Remover &amp; Stem Splitter</div>
-    </header>
-
-    <div class="top-bar">
-      <div class="user-pill">
-        👤 Logged in as <span class="uname" id="displayName"></span>
-        <button class="logout-btn" id="logoutBtn">Log out</button>
+<!-- ══ MODAL: Record ══ -->
+<div id="recModal" class="overlay hidden">
+  <div class="modal">
+    <h3 id="recModalTitle">Record Audio</h3>
+    <p id="recModalSub" style="font-size:.78rem;color:var(--muted);margin-top:-12px;margin-bottom:12px"></p>
+    <div class="rec-area" id="recArea">
+      <div class="rec-status" id="recStatus">Ready — press Record to start</div>
+      <div class="rec-viz" id="recViz">
+        <div class="viz-b"></div><div class="viz-b"></div><div class="viz-b"></div>
+        <div class="viz-b"></div><div class="viz-b"></div><div class="viz-b"></div>
+        <div class="viz-b"></div><div class="viz-b"></div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div class="ai-badge"><div class="ai-dot"></div>AI ENGINE ONLINE</div>
-        <button id="hostModeBtn" style="background:transparent;border:1px solid rgba(255,107,0,0.3);color:rgba(255,107,0,0.6);font-family:'Orbitron',monospace;font-size:0.5rem;letter-spacing:0.12em;padding:6px 12px;cursor:pointer;border-radius:2px;text-transform:uppercase;transition:all 0.2s;">⬡ Host Mode</button>
+      <div class="rec-btns">
+        <button class="rec-btn-start" id="recStart">🔴 Record</button>
+        <button class="rec-btn-stop hidden" id="recStop">⏹ Stop</button>
       </div>
-    </div>
-
-    <div class="host-panel" id="hostPanel">
-      <div class="host-title">🔥 HOST CONTROL PANEL</div>
-      <div class="host-row">
-        <span class="host-label">Ad System</span>
-        <div class="toggle-wrap">
-          <label class="toggle">
-            <input type="checkbox" id="adToggle"/>
-            <span class="toggle-slider"></span>
-          </label>
-          <span class="toggle-label" id="adToggleLabel">OFF</span>
-        </div>
-      </div>
-      <div class="ad-upload-area" id="adUploadArea">
-        <p>📁 Click to upload ad video or audio file</p>
-        <div class="ad-current" id="adCurrentFile">No ad uploaded yet</div>
-      </div>
-      <input type="file" id="adFileInput" accept="video/*,audio/*"/>
-      <button class="host-exit-btn" id="hostExitBtn">Exit Host Mode</button>
-    </div>
-
-    <div class="tabs">
-      <button class="tab-btn active" id="tabProcess">⬡ &nbsp;Process Song</button>
-      <button class="tab-btn"        id="tabHistory">🔥 &nbsp;History</button>
-    </div>
-
-    <div class="tab-panel active" id="tab-process">
-      <div class="upload-zone" id="uploadZone">
-        <span class="upload-icon">⬡</span>
-        <h2>Drop Your Music File Here</h2>
-        <p>MP3 · MP4 · WAV · OGG · FLAC</p>
-        <p style="margin-top:5px;font-size:0.58rem;">Results saved privately to your history</p>
-      </div>
-      <input type="file" id="fileInput" accept=".mp3,.mp4,.wav,.ogg,.flac,audio/*,video/*"/>
-
-      <div class="file-info" id="fileInfo">
-        <span class="file-badge" id="fileBadge">MP3</span>
-        <span class="file-name"  id="fileName"></span>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;margin-left:auto;">
-          <span id="fileSize" style="font-size:0.58rem;"></span>
-          <span id="compressStats" style="font-size:0.52rem;color:var(--neon);text-shadow:0 0 6px var(--neon);display:none;">⚡ Compressing...</span>
-        </div>
-      </div>
-
-      <div class="section-label">// Choose What You Want To Do</div>
-      <div class="mode-grid">
-        <button class="mode-btn active" data-mode="vocals"      ><span class="mode-icon">🎤</span>Remove Vocals</button>
-        <button class="mode-btn"        data-mode="instrumental"><span class="mode-icon">🎸</span>Instrumental Only</button>
-        <button class="mode-btn"        data-mode="stems"       ><span class="mode-icon">🎛️</span>Split All Stems</button>
-        <button class="mode-btn"        data-mode="bass"        ><span class="mode-icon">🎵</span>Isolate Bass</button>
-        <button class="mode-btn"        data-mode="drums"       ><span class="mode-icon">🥁</span>Isolate Drums</button>
-      </div>
-
-      <div class="error-box" id="errorBox"></div>
-
-      <button class="process-btn" id="processBtn" disabled>
-        ⬡ &nbsp; Start AI Separation
-      </button>
-
-      <div class="progress-section" id="progressSection">
-        <div class="progress-label"><span>AI PROCESSING</span><span id="progressPct">0%</span></div>
-        <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
-        <div class="status-text blink" id="statusText">Connecting to AI...</div>
-      </div>
-
-      <div class="save-indicator" id="saveIndicator">🔥 Saved to your history</div>
-
-      <div class="results" id="results">
-        <div class="results-header">// AI Separation Complete — Mix &amp; Download Below</div>
-        <div id="mixerSection" style="display:none;">
-          <div class="mixer-panel">
-            <div class="mixer-title">⬡ DUAL TRACK MIXER</div>
-            <div class="track-row">
-              <div class="track-label">🎸 INSTRUMENTAL<span class="track-sub">Music / No Vocals</span></div>
-              <div class="waveform-wrap" id="waveformA">
-                <canvas class="waveform" id="canvasA"></canvas>
-                <div class="playhead" id="playheadA"></div>
-              </div>
-              <div class="vol-col">
-                <span class="vol-label">VOL</span>
-                <input type="range" class="vol-slider" id="volA" min="0" max="150" value="100" orient="vertical"/>
-                <span class="vol-val" id="volAVal">100%</span>
-              </div>
-            </div>
-            <div class="track-row">
-              <div class="track-label">🎤 VOCALS<span class="track-sub">Isolated Voice</span></div>
-              <div class="waveform-wrap" id="waveformB">
-                <canvas class="waveform" id="canvasB"></canvas>
-                <div class="playhead" id="playheadB"></div>
-              </div>
-              <div class="vol-col">
-                <span class="vol-label">VOL</span>
-                <input type="range" class="vol-slider" id="volB" min="0" max="150" value="100" orient="vertical"/>
-                <span class="vol-val" id="volBVal">100%</span>
-              </div>
-            </div>
-            <div class="mixer-controls">
-              <button class="big-play-btn" id="playBtn">▶</button>
-              <div class="scrubber-wrap">
-                <input type="range" class="scrubber" id="scrubber" min="0" max="1000" value="0"/>
-                <div class="time-row"><span id="timeCurrent">0:00</span><span id="timeDuration">0:00</span></div>
-              </div>
-              <div class="mixer-time" id="mixerTime">0:00</div>
-            </div>
-            <div class="export-section">
-              <div class="export-title">// DOWNLOAD — at the exact volumes you set above</div>
-              <div class="export-btns">
-                <button class="export-btn mixed" id="exportMixedBtn">⬡ Download Mixed Track</button>
-                <button class="export-btn" id="dlInstrumental">↓ Instrumental Only</button>
-                <button class="export-btn" id="dlVocals">↓ Vocals Only</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div id="stemCards"></div>
-        <button class="reset-btn" id="resetBtn">↺ &nbsp; Process Another Song</button>
+      <audio id="recPreview" controls class="hidden"></audio>
+      <div id="recSaveRow" class="hidden" style="display:flex;gap:8px;justify-content:center">
+        <button class="btn-secondary" id="recRedo">↩ Redo</button>
+        <button class="btn-primary" id="recSave">💾 Save</button>
       </div>
     </div>
-
-    <div class="tab-panel" id="tab-history">
-      <div class="history-loading" id="historyLoading" style="display:none;">Loading history...</div>
-      <div class="history-filter" id="historyFilterBar" style="display:none;">
-        <span class="filter-label">Search:</span>
-        <input class="filter-input" id="historySearch" placeholder="Song name..."/>
-      </div>
-      <div id="historyList"></div>
+    <div class="upload-sep">— or upload an audio file —</div>
+    <input type="file" id="uploadFile" accept="audio/*"/>
+    <div style="margin-top:10px;text-align:right">
+      <button class="btn-secondary" onclick="closeRecModal()">✕ Close</button>
     </div>
-
   </div>
+</div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-  <script type="module">
-    import { initializeApp }    from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getStorage, ref, uploadBytes, getDownloadURL, listAll, deleteObject }
-                                from "https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js";
-    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, orderBy, query, where }
-                                from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
-    import { Client }           from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
+<!-- Firebase SDKs -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, onValue, push } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getStorage, ref as sref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-    // ── CONFIG ──────────────────────────────────────
-    const SPACE_ID  = 'micln/MEC';
-    const HOST_PASS = '2011';
+// ── Firebase config ──────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyBj6EKbtnsp_LLtzbrcYCENsY4IjFwlncM",
+  authDomain: "ai-1-46a29.firebaseapp.com",
+  databaseURL: "https://ai-1-46a29-default-rtdb.firebaseio.com",
+  projectId: "ai-1-46a29",
+  storageBucket: "ai-1-46a29.firebasestorage.app",
+  messagingSenderId: "899054806724",
+  appId: "1:899054806724:web:6d6170771ea5fe4d1bcb91",
+  measurementId: "G-HH25NJP4YY"
+};
 
-    const firebaseConfig = {
-      apiKey:            "AIzaSyDL8QxCLvJ2tXRk7BS1lxLxR7mQMXbwvdA",
-      authDomain:        "music-ff347.firebaseapp.com",
-      projectId:         "music-ff347",
-      storageBucket:     "music-ff347.firebasestorage.app",
-      messagingSenderId: "622237553505",
-      appId:             "1:622237553505:web:6d34099437e21fed582b20"
+const app     = initializeApp(firebaseConfig);
+const db      = getDatabase(app);
+const storage = getStorage(app);
+
+// ── State ────────────────────────────────────────────────────────────────────
+let PIN          = '2011';
+let pinEntry     = '';
+let currentMenuId= 'main';
+let breadcrumbStack = [{ id:'main', label:'Main Menu' }];
+let hotlineData  = {};
+let recContext   = {}; // {menuId, digit, isGreeting, isWhisper}
+let mediaRec     = null;
+let recChunks    = [];
+let recBlob      = null;
+
+// ── Bootstrap DB ─────────────────────────────────────────────────────────────
+async function bootstrap() {
+  const snap = await get(ref(db, 'hotline'));
+  if (!snap.exists()) {
+    const defaults = {
+      settings: { pin:'2011', hostNumber:'', comingSoon:'This option is coming soon. Please try again later.' },
+      menus: {
+        main: { id:'main', label:'Main Menu', greeting:null, buttons:{} }
+      }
     };
-
-    const fbApp   = initializeApp(firebaseConfig);
-    const storage = getStorage(fbApp);
-    const db      = getFirestore(fbApp);
-
-    // ── STATE ────────────────────────────────────────
-    let currentUser  = null;
-    let currentEmail = null;
-    let isHost       = false;
-    let adEnabled    = false;
-    let adFileURL    = null;
-    let adFileType   = null;
-    let adWatched    = false;
-    let selectedFile = null;
-    let selectedMode = 'vocals';
-    let audioCtx     = null;
-    let bufferA = null, bufferB = null;
-    let sourceA = null, sourceB = null;
-    let gainA = null,   gainB = null;
-    let isPlaying = false, startTime = 0, pauseOffset = 0, duration = 0, rafId = null;
-    let volA = 1.0, volB = 1.0;
-    let allHistoryDocs = [];
-
-    // ── BACKGROUND PIPELINE STATE ────────────────────
-    let gradioClient      = null;   // pre-connected Gradio client
-    let compressedFile    = null;   // pre-compressed audio blob
-    let compressPromise   = null;   // promise resolving to compressed file
-    let clientPromise     = null;   // promise resolving to gradio client
-
-    // ── WIRE UP ALL EVENT LISTENERS ──────────────────
-    // deleteHistory is called from dynamic innerHTML so must stay on window
-    window.deleteHistory = deleteHistory;
-
-    // Login
-    document.getElementById('loginBtn').addEventListener('click', doLogin);
-    document.getElementById('loginInput').addEventListener('keydown', e => {
-      if(e.key==='Enter') {
-        const email = document.getElementById('loginEmail').value.trim();
-        if(email) doLogin(); // if email already filled, just submit
-        else document.getElementById('loginEmail').focus(); // otherwise move to email
-      }
-    });
-    document.getElementById('loginEmail').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
-
-    // Logout
-    document.getElementById('logoutBtn').addEventListener('click', doLogout);
-
-    // Host mode
-    const hostModeBtn = document.getElementById('hostModeBtn');
-    hostModeBtn.addEventListener('click', openHostOverlay);
-    hostModeBtn.addEventListener('mouseover', () => { hostModeBtn.style.borderColor='#ff6b00'; hostModeBtn.style.color='#ff6b00'; });
-    hostModeBtn.addEventListener('mouseout',  () => { hostModeBtn.style.borderColor='rgba(255,107,0,0.3)'; hostModeBtn.style.color='rgba(255,107,0,0.6)'; });
-
-    document.getElementById('hostUnlockBtn').addEventListener('click', tryHostUnlock);
-    document.getElementById('hostPassInput').addEventListener('keydown', e => { if(e.key==='Enter') tryHostUnlock(); });
-    document.getElementById('hostCancelBtn').addEventListener('click', closeHostOverlay);
-    document.getElementById('hostExitBtn').addEventListener('click', exitHostMode);
-
-    // Ad system
-    document.getElementById('adToggle').addEventListener('change', saveAdSettings);
-    document.getElementById('adFileInput').addEventListener('change', function(){ handleAdUpload(this); });
-
-    // Skip intro
-    document.getElementById('userSkipBtn').addEventListener('click', userSkipIntro);
-    document.getElementById('hostSkipBtn').addEventListener('click', toggleSkipModal);
-    document.getElementById('skipBtn').addEventListener('click', trySkip);
-    document.getElementById('skipPassInput').addEventListener('keydown', e => { if(e.key==='Enter') trySkip(); });
-
-    // Tabs
-    document.getElementById('tabProcess').addEventListener('click', function(){ switchTab('process', this); });
-    document.getElementById('tabHistory').addEventListener('click', function(){ switchTab('history', this); });
-
-    // Mode buttons
-    document.querySelectorAll('.mode-btn').forEach(btn => btn.addEventListener('click', function(){ selectMode(this); }));
-
-    // Process
-    document.getElementById('processBtn').addEventListener('click', processAudio);
-
-    // Mixer
-    document.getElementById('playBtn').addEventListener('click', () => isPlaying ? pausePlayback() : startPlayback());
-    document.getElementById('scrubber').addEventListener('input', function(){ scrubTo(this.value); });
-    document.getElementById('waveformA').addEventListener('click', e => seekClick(e,'A'));
-    document.getElementById('waveformB').addEventListener('click', e => seekClick(e,'B'));
-    document.getElementById('volA').addEventListener('input', function(){ updateVol('A', this.value); });
-    document.getElementById('volB').addEventListener('input', function(){ updateVol('B', this.value); });
-    document.getElementById('exportMixedBtn').addEventListener('click', exportMixed);
-    document.getElementById('resetBtn').addEventListener('click', resetAll);
-
-    // History search
-    document.getElementById('historySearch').addEventListener('input', filterHistory);
-
-    // Upload zones
-    document.getElementById('uploadZone').addEventListener('click', () => document.getElementById('fileInput').click());
-    document.getElementById('adUploadArea').addEventListener('click', () => document.getElementById('adFileInput').click());
-
-    // ── EMAILJS INIT ─────────────────────────────────
-    // Wait for EmailJS SDK to be ready before initialising
-    function initEmailJS() {
-      if (window.emailjs) {
-        window.emailjs.init('gBlc9kKG8eZfOr6UV');
-        console.log('[STEMIX] ✓ EmailJS ready');
-      } else {
-        setTimeout(initEmailJS, 200);
-      }
-    }
-    initEmailJS();
-
-    // ── LOGIN ────────────────────────────────────────
-    function doLogin() {
-      try {
-        const val   = document.getElementById('loginInput').value.trim();
-        const email = document.getElementById('loginEmail').value.trim();
-        if (!val)   { document.getElementById('loginErr').textContent = 'Please enter a username.'; return; }
-        if (!email || !email.includes('@')) { document.getElementById('loginErr').textContent = 'Please enter a valid email address.'; return; }
-        currentUser = val.toLowerCase().replace(/[^a-z0-9_-]/g,'');
-        if (!currentUser) { document.getElementById('loginErr').textContent = 'Username can only contain letters, numbers, - or _'; return; }
-        currentEmail = email;
-        document.getElementById('loginOverlay').classList.add('hidden');
-        document.getElementById('displayName').textContent = val;
-        document.getElementById('mainApp').style.display = 'block';
-        startBackgroundPipeline();
-      } catch(e) {
-        console.error('Login error:', e);
-        document.getElementById('loginErr').textContent = 'Error: ' + e.message;
-      }
-    }
-
-    // ── BACKGROUND PIPELINE ──────────────────────────
-    function startBackgroundPipeline() {
-      // 1. Pre-connect Gradio client (wakes the space up properly)
-      clientPromise = Client.connect(SPACE_ID)
-        .then(c => { gradioClient = c; console.log('[STEMIX] ✓ Gradio client pre-connected'); return c; })
-        .catch(e => { console.warn('[STEMIX] Pre-connect failed, will retry on process:', e.message); return null; });
-
-      // 2. Keep-alive pings every 20s so the space never sleeps while user is active
-      startKeepAlive();
-    }
-
-    let keepAliveInterval = null;
-    function startKeepAlive() {
-      stopKeepAlive();
-      keepAliveInterval = setInterval(() => {
-        fetch('https://micln-mec.hf.space/', { method: 'GET', mode: 'no-cors' })
-          .then(() => console.log('[STEMIX] ♥ Keep-alive ping sent'))
-          .catch(() => {}); // silently ignore errors
-      }, 20000);
-    }
-    function stopKeepAlive() {
-      if (keepAliveInterval) { clearInterval(keepAliveInterval); keepAliveInterval = null; }
-    }
-
-    // ── COMPRESS AUDIO ───────────────────────────────
-    // Called the moment user selects a file — compresses in background while they pick mode
-    async function compressAudio(file) {
-      try {
-        console.log('[STEMIX] Compressing:', file.name, (file.size/1048576).toFixed(2)+'MB');
-        // Already small enough — skip compression
-        if (file.size < 2 * 1048576) {
-          console.log('[STEMIX] File small, skipping compression');
-          return file;
-        }
-        if (!audioCtx) audioCtx = new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100});
-        const arrayBuf = await file.arrayBuffer();
-        const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
-
-        // Encode to low-bitrate WAV (mono if stereo, capped at 44.1kHz)
-        const numCh   = Math.min(audioBuf.numberOfChannels, 2);
-        const numSamp = audioBuf.length;
-        const sr      = audioBuf.sampleRate;
-        const dSz     = numSamp * numCh * 2;
-        const ab      = new ArrayBuffer(44 + dSz);
-        const v       = new DataView(ab);
-        const ws = (o,s) => { for(let i=0;i<s.length;i++) v.setUint8(o+i,s.charCodeAt(i)); };
-        ws(0,'RIFF'); v.setUint32(4,36+dSz,true); ws(8,'WAVE'); ws(12,'fmt ');
-        v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,numCh,true);
-        v.setUint32(24,sr,true); v.setUint32(28,sr*numCh*2,true);
-        v.setUint16(32,numCh*2,true); v.setUint16(34,16,true);
-        ws(36,'data'); v.setUint32(40,dSz,true);
-        let off = 44;
-        for (let i=0;i<numSamp;i++) {
-          for (let c=0;c<numCh;c++) {
-            const s = audioBuf.getChannelData(c)[i];
-            v.setInt16(off, s<0?s*32768:s*32767, true); off+=2;
-          }
-        }
-        const blob = new Blob([ab], {type:'audio/wav'});
-        const compressed = new File([blob], file.name.replace(/\.[^.]+$/,'')+'.wav', {type:'audio/wav'});
-        console.log('[STEMIX] ✓ Compressed to', (compressed.size/1048576).toFixed(2)+'MB');
-        return compressed;
-      } catch(e) {
-        console.warn('[STEMIX] Compression failed, using original:', e.message);
-        return file;
-      }
-    }
-
-    // ── FIREBASE CACHE CHECK ─────────────────────────
-    async function checkFirebaseCache(file) {
-      try {
-        // Build a simple hash from filename + size + lastModified
-        const hashKey = `${file.name}_${file.size}_${file.lastModified}`;
-        const q = query(
-          collection(db,'history'),
-          where('username','==',currentUser),
-          where('cacheKey','==',hashKey),
-          orderBy('date','desc')
-        );
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          const cached = snap.docs[0].data();
-          console.log('[STEMIX] ✓ Cache hit! Serving from Firebase');
-          return cached.stems || null;
-        }
-      } catch(e) {
-        console.warn('[STEMIX] Cache check failed:', e.message);
-      }
-      return null;
-    }
-
-    function doLogout() {
-      currentUser = null; currentEmail = null; isHost = false; adWatched = false;
-      stopKeepAlive();
-      document.getElementById('mainApp').style.display = 'none';
-      document.getElementById('loginOverlay').classList.remove('hidden');
-      document.getElementById('loginInput').value = '';
-      document.getElementById('loginEmail').value  = '';
-      document.getElementById('loginErr').textContent = '';
-      document.getElementById('hostPanel').classList.remove('visible');
-      resetAll();
-    }
-
-    // ── HOST MODE ────────────────────────────────────
-    function openHostOverlay()  { document.getElementById('hostOverlay').classList.remove('hidden'); document.getElementById('hostPassInput').value=''; document.getElementById('hostErr').textContent=''; setTimeout(()=>document.getElementById('hostPassInput').focus(),100); }
-    function closeHostOverlay() { document.getElementById('hostOverlay').classList.add('hidden'); }
-
-    function tryHostUnlock() {
-      const val = document.getElementById('hostPassInput').value;
-      if (val === HOST_PASS) {
-        isHost = true;
-        closeHostOverlay();
-        document.getElementById('hostPanel').classList.add('visible');
-        document.getElementById('adToggleLabel').textContent = adEnabled ? 'ON' : 'OFF';
-        document.getElementById('adToggle').checked = adEnabled;
-        if (adFileURL) document.getElementById('adCurrentFile').textContent = 'Ad file loaded ✓';
-      } else {
-        document.getElementById('hostErr').textContent = 'Wrong password.';
-      }
-    }
-
-    function exitHostMode() {
-      isHost = false;
-      document.getElementById('hostPanel').classList.remove('visible');
-    }
-
-    // ── AD SYSTEM ────────────────────────────────────
-    function saveAdSettings() {
-      adEnabled = document.getElementById('adToggle').checked;
-      document.getElementById('adToggleLabel').textContent = adEnabled ? 'ON' : 'OFF';
-    }
-
-    function handleAdUpload(input) {
-      const file = input.files[0];
-      if (!file) return;
-      if (adFileURL) URL.revokeObjectURL(adFileURL);
-      adFileURL  = URL.createObjectURL(file);
-      adFileType = file.type.startsWith('video') ? 'video' : 'audio';
-      document.getElementById('adCurrentFile').textContent = '✓ ' + file.name;
-    }
-
-    function checkAndShowAd() {
-      if (adWatched || isHost) return;
-      showAd();
-    }
-
-    function showAd() {
-      try {
-        document.getElementById('adOverlay').classList.remove('hidden');
-        setTimeout(() => {
-          try {
-            startIntroAnimation();
-          } catch(e) {
-            console.error('[STEMIX] Intro animation error:', e);
-            // If animation crashes, just auto-dismiss after 3 seconds
-            setTimeout(() => {
-              adWatched = true;
-              document.getElementById('adOverlay').classList.add('hidden');
-            }, 3000);
-          }
-        }, 100); // small delay so overlay is visible/rendered before canvas draws
-      } catch(e) {
-        console.error('[STEMIX] showAd error:', e);
-        adWatched = true; // skip broken ad gracefully
-      }
-    }
-
-    function startIntroAnimation() {
-      // ── Grid background ──
-      const bgC = document.getElementById('introBg');
-      const bgX = bgC.getContext('2d');
-      function drawIntroBg() {
-        bgC.width  = window.innerWidth;
-        bgC.height = window.innerHeight;
-        bgX.clearRect(0,0,bgC.width,bgC.height);
-        bgX.strokeStyle = 'rgba(0,255,65,0.04)'; bgX.lineWidth=1;
-        for(let x=0;x<bgC.width;x+=40){bgX.beginPath();bgX.moveTo(x,0);bgX.lineTo(x,bgC.height);bgX.stroke();}
-        for(let y=0;y<bgC.height;y+=40){bgX.beginPath();bgX.moveTo(0,y);bgX.lineTo(bgC.width,y);bgX.stroke();}
-      }
-      drawIntroBg();
-      window.addEventListener('resize', drawIntroBg);
-
-      // ── Waveform ──
-      const wC = document.getElementById('introWave');
-      const wX = wC.getContext('2d');
-      let wPhase = 0;
-      let waveRunning = true;
-      function drawIntroWave() {
-        if(!waveRunning) return;
-        const W = wC.offsetWidth||560, H = wC.offsetHeight||70;
-        const dpr = window.devicePixelRatio||1;
-        wC.width=W*dpr; wC.height=H*dpr;
-        wX.scale(dpr,dpr); wX.clearRect(0,0,W,H);
-        const mid=H/2, bars=80, barW=W/bars;
-        for(let i=0;i<bars;i++){
-          const x=i*barW+barW/2;
-          const t=(i/bars)*Math.PI*6+wPhase;
-          const amp=(Math.sin(t)*0.5+Math.sin(t*2.3+1)*0.3+Math.sin(t*0.7)*0.2)*mid*0.75;
-          const h=Math.max(3,Math.abs(amp));
-          const alpha=0.4+Math.abs(amp/mid)*0.6;
-          wX.fillStyle=`rgba(0,255,65,${alpha})`;
-          wX.shadowBlur=6; wX.shadowColor='#00ff41';
-          wX.fillRect(x-barW*0.35,mid-h,barW*0.7,h*2);
-        }
-        wPhase+=0.06;
-        requestAnimationFrame(drawIntroWave);
-      }
-      drawIntroWave();
-
-      // ── Sequence lines ──
-      const LINES = [
-        'Initializing STEMIX core...',
-        'Connecting to AI separation engine...',
-        'Loading neural stem models...',
-        'Calibrating vocal frequency bands...',
-        'Warming up instrument isolation...',
-        'Testing signal pathway integrity...',
-        'Synchronizing audio processing pipeline...',
-        'Verifying stem output quality...',
-        'AI engine fully operational.',
-      ];
-      const seqWrap = document.getElementById('introSeqWrap');
-      seqWrap.innerHTML = '';
-      LINES.forEach((txt,i)=>{
-        const el=document.createElement('div');
-        el.className='intro-seq-line'; el.id='iline'+i;
-        el.textContent='> '+txt; seqWrap.appendChild(el);
-      });
-
-      const TOTAL = 28000;
-      const lineTimes = LINES.map((_,i)=>2500+i*(TOTAL*0.85/LINES.length));
-      const lineShown = new Array(LINES.length).fill(false);
-      const introStart = performance.now();
-
-      function introTick() {
-        const elapsed = performance.now()-introStart;
-        const pct = Math.min(100,Math.round((elapsed/TOTAL)*100));
-        document.getElementById('introBarInner').style.width=pct+'%';
-        document.getElementById('introPctLabel').textContent=pct+'%';
-
-        lineTimes.forEach((t,i)=>{
-          if(!lineShown[i]&&elapsed>=t){
-            lineShown[i]=true;
-            const el=document.getElementById('iline'+i);
-            el.classList.add('active');
-            if(i>0){const p=document.getElementById('iline'+(i-1));p.classList.remove('active');p.classList.add('done');}
-          }
-        });
-
-        if(elapsed<TOTAL){ requestAnimationFrame(introTick); }
-        else {
-          waveRunning=false;
-          const last=document.getElementById('iline'+(LINES.length-1));
-          last.classList.remove('active'); last.classList.add('done');
-          setTimeout(()=>{
-            document.getElementById('introReady').classList.add('show');
-            // Auto-dismiss after 2 more seconds
-            setTimeout(()=>{
-              onIntroDismissed();
-            },2000);
-          },300);
-        }
-      }
-
-      // "Presented by" fades in at 14 seconds
-      setTimeout(()=>{ document.getElementById('introPresentedWrap').classList.add('show'); },14000);
-
-      // Show user skip button after 5 seconds
-      setTimeout(()=>{ document.getElementById('userSkipBar').style.display='block'; }, 5000);
-
-      setTimeout(()=>requestAnimationFrame(introTick),2500);
-    }
-
-    function userSkipIntro() {
-      onIntroDismissed();
-    }
-
-    // ── AD SKIP ──────────────────────────────────────
-    function toggleSkipModal() {
-      const m = document.getElementById('skipModal');
-      m.classList.toggle('visible');
-      if (m.classList.contains('visible')) {
-        document.getElementById('skipPassInput').value = '';
-        document.getElementById('skipErr').textContent = '';
-        setTimeout(()=>document.getElementById('skipPassInput').focus(),100);
-      }
-    }
-
-    function trySkip() {
-      const val = document.getElementById('skipPassInput').value;
-      if (val === HOST_PASS) {
-        document.getElementById('skipModal').classList.remove('visible');
-        const media = document.querySelector('#adMediaWrap video, #adMediaWrap audio');
-        if (media) { try { media.pause(); } catch(e){} }
-        onIntroDismissed();
-      } else {
-        document.getElementById('skipErr').textContent = 'Wrong password.';
-      }
-    }
-
-    // ── FILE HANDLING ─────────────────────────────────
-    const uploadZone = document.getElementById('uploadZone');
-    const fileInput  = document.getElementById('fileInput');
-    uploadZone.addEventListener('dragover',  e=>{e.preventDefault();uploadZone.classList.add('drag-over');});
-    uploadZone.addEventListener('dragleave', ()=>uploadZone.classList.remove('drag-over'));
-    uploadZone.addEventListener('drop', e=>{
-      e.preventDefault(); uploadZone.classList.remove('drag-over');
-      if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
-    });
-    fileInput.addEventListener('change', e=>{if(e.target.files[0]) handleFile(e.target.files[0]);});
-
-    function handleFile(file) {
-      selectedFile   = file;
-      compressedFile = null;
-      document.getElementById('fileBadge').textContent     = file.name.split('.').pop().toUpperCase();
-      document.getElementById('fileName').textContent      = file.name;
-      document.getElementById('fileSize').textContent      = fmtSize(file.size);
-      const statsEl = document.getElementById('compressStats');
-      if (file.size >= 2 * 1048576) {
-        statsEl.textContent = '⚡ Compressing...';
-        statsEl.style.color = 'var(--text-dim)';
-        statsEl.style.display = 'block';
-      } else {
-        statsEl.textContent = '✓ No compression needed';
-        statsEl.style.color = 'var(--text-dim)';
-        statsEl.style.display = 'block';
-      }
-      document.getElementById('fileInfo').classList.add('visible');
-      document.getElementById('processBtn').style.display = 'none';
-      document.getElementById('results').classList.remove('visible');
-      document.getElementById('progressSection').classList.remove('visible');
-      document.getElementById('errorBox').classList.remove('visible');
-      document.getElementById('saveIndicator').classList.remove('visible');
-      stopPlayback();
-
-      // Start compressing immediately, update stats when done
-      compressPromise = compressAudio(file).then(f => {
-        compressedFile = f;
-        if (f.size < file.size) {
-          const saved = Math.round((1 - f.size / file.size) * 100);
-          statsEl.textContent = `⚡ ${fmtSize(file.size)} → ${fmtSize(f.size)} (${saved}% smaller)`;
-          statsEl.style.color = 'var(--neon)';
-        } else {
-          statsEl.textContent = '✓ Already optimized';
-          statsEl.style.color = 'var(--text-dim)';
-        }
-        return f;
-      });
-
-      // Show intro — full AI processing runs silently during it
-      try { checkAndShowAd(); } catch(e) { console.error('Ad error:', e); adWatched = true; }
-
-      // Kick off processing in background
-      silentProcess();
-    }
-
-    // ── SILENT BACKGROUND PROCESSING ────────────────
-    // Runs during intro. When intro ends, results are shown immediately.
-    let processingPromise = null;
-    let processingResult  = null; // 'done' | 'error'
-    let processedStems    = null;
-    let processedError    = null;
-
-    async function silentProcess() {
-      processingPromise = _doProcess();
-    }
-
-    async function _doProcess() {
-      processingResult = null;
-      processedStems   = null;
-      processedError   = null;
-
-      // Show progress bar immediately so user sees activity
-      document.getElementById('progressSection').classList.add('visible');
-      document.getElementById('statusText').className = 'status-text blink';
-      setProgress(5, 'Checking cache...');
-
-      try {
-        if(!audioCtx) audioCtx = new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100});
-
-        // Check cache first
-        const cachedStems = await checkFirebaseCache(selectedFile);
-        if (cachedStems) {
-          setProgress(60, 'Loading from cache...');
-          const stems = await buildStemsFromCached(cachedStems);
-          setProgress(100, '✓ Loaded instantly from cache!');
-          processedStems   = stems;
-          processingResult = 'done';
-          console.log('[STEMIX] ✓ Cache hit');
-          onProcessingDone();
-          return;
-        }
-
-        const gradioMode = ['stems','bass','drums'].includes(selectedMode) ? 'all stems' : 'vocals only';
-
-        // Wait for compression
-        setProgress(10, 'Compressing audio...');
-        const fileToSend = compressedFile || await (compressPromise || compressAudio(selectedFile));
-
-        // Connect to Gradio
-        setProgress(20, 'Connecting to AI...');
-        const client = gradioClient || await Promise.race([
-          Client.connect(SPACE_ID),
-          new Promise((_,r)=>setTimeout(()=>r(new Error('AI took too long to connect. Try again in 30 seconds.')),120000))
-        ]);
-
-        setProgress(30, 'Uploading your track...');
-        const resultIterable = client.submit('/separate_audio', {
-          audio_file: fileToSend,
-          mode:       gradioMode,
-        });
-
-        let result = null;
-        for await (const event of resultIterable) {
-          if (event.type === 'status') {
-            const s = event.data;
-            if (s?.queue === true && s?.position != null) {
-              setProgress(35, `Queued — position ${s.position}, please wait...`);
-            } else if (s?.stage === 'generating') {
-              setProgress(65, 'AI separating stems...');
-            } else if (s?.stage === 'complete') {
-              setProgress(85, 'Almost done...');
-            }
-          }
-          if (event.type === 'data') result = event.data;
-        }
-
-        if (!result) throw new Error('No result returned from AI.');
-
-        setProgress(88, 'Loading your tracks...');
-        const resultArray = Array.isArray(result) ? result : (result.data ?? []);
-        const stems = await buildStemsFromResult(resultArray);
-
-        setProgress(95, 'Saving to Firebase...');
-        await saveToFirebase(stems);
-
-        setProgress(100, '✓ Done!');
-        document.getElementById('statusText').className = 'status-text';
-        processedStems   = stems;
-        processingResult = 'done';
-        console.log('[STEMIX] ✓ Processing complete');
-        onProcessingDone();
-
-      } catch(err) {
-        console.error('[STEMIX error]', err);
-        processedError   = err.message || String(err);
-        processingResult = 'error';
-        onProcessingDone();
-        gradioClient  = null;
-        clientPromise = null;
-        startBackgroundPipeline();
-      }
-    }
-      }
-    }
-
-    // Called when processing finishes — either show results or wait for intro to end
-    function onProcessingDone() {
-      if (adWatched) {
-        // Intro already ended — show immediately
-        showProcessingResult();
-      } else {
-        // Intro still going — wait for it, but add a 3 second fallback
-        // in case onIntroDismissed never fires for any reason
-        setTimeout(() => {
-          if (processingResult !== null && !document.getElementById('results').classList.contains('visible')) {
-            console.log('[STEMIX] Fallback: forcing result display');
-            adWatched = true;
-            document.getElementById('adOverlay').classList.add('hidden');
-            showProcessingResult();
-          }
-        }, 3000);
-      }
-    }
-
-    // Called when intro ends (auto or skip)
-    function onIntroDismissed() {
-      adWatched = true;
-      document.getElementById('adOverlay').classList.add('hidden');
-      document.getElementById('userSkipBar').style.display = 'none';
-      document.getElementById('introReady').classList.remove('show');
-
-      if (processingResult === 'done') {
-        // Already finished — show results immediately
-        showProcessingResult();
-      } else if (processingResult === 'error') {
-        showProcessingResult();
-      } else {
-        // Still running — show live progress bar
-        document.getElementById('processBtn').style.display = 'none';
-        document.getElementById('progressSection').classList.add('visible');
-        document.getElementById('statusText').textContent = 'AI is separating your stems...';
-        // Poll until done
-        const poll = setInterval(() => {
-          if (processingResult !== null) {
-            clearInterval(poll);
-            showProcessingResult();
-          }
-        }, 500);
-      }
-    }
-
-    function showProcessingResult() {
-      document.getElementById('progressSection').classList.remove('visible');
-      document.getElementById('progressBar').style.width = '0%';
-      if (processingResult === 'done' && processedStems) {
-        document.getElementById('saveIndicator').classList.add('visible');
-        buildResults(processedStems);
-        document.getElementById('results').classList.add('visible');
-      } else if (processingResult === 'error') {
-        const m = processedError || 'Unknown error';
-        let msg;
-        if      (m.includes('timeout') || m.includes('took too long')) msg = '⏱ ' + m;
-        else if (m.includes('503') || m.includes('sleep'))             msg = '💤 The AI is waking up — wait 30 seconds and try again.';
-        else if (m.includes('connect') || m.includes('NetworkError'))  msg = '🌐 Could not reach AI. Check your internet connection.';
-        else if (m.includes('No audio'))                               msg = '🔇 ' + m;
-        else                                                           msg = '⚠ ' + m;
-        showError(msg);
-        // Show retry button
-        document.getElementById('processBtn').style.display = 'block';
-        document.getElementById('processBtn').disabled = false;
-        document.getElementById('processBtn').textContent = '↺  Retry';
-      }
-    }
-
-    function fmtSize(b){ return b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB'; }
-
-    // ── TABS ──────────────────────────────────────────
-    function switchTab(name, btn) {
-      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-      document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('tab-'+name).classList.add('active');
-      if (name==='history') loadHistory();
-    }
-
-    // ── PROCESS (retry only — normal flow is automatic via silentProcess) ──
-    async function processAudio() {
-      if (!selectedFile) return;
-      document.getElementById('processBtn').style.display = 'none';
-      document.getElementById('errorBox').classList.remove('visible');
-      document.getElementById('progressSection').classList.add('visible');
-      document.getElementById('statusText').textContent = 'Retrying...';
-      document.getElementById('statusText').className = 'status-text blink';
-      await silentProcess();
-      // Poll until done
-      const poll = setInterval(() => {
-        if (processingResult !== null) {
-          clearInterval(poll);
-          showProcessingResult();
-        }
-      }, 500);
-    }
-
-    function showError(msg){const b=document.getElementById('errorBox');b.textContent=msg;b.classList.add('visible');}
-    function setProgress(pct,msg){
-      document.getElementById('progressBar').style.width=pct+'%';
-      document.getElementById('progressPct').textContent=pct+'%';
-      document.getElementById('statusText').textContent=msg;
-    }
-
-    // ── BUILD STEMS FROM RESULT ───────────────────────
-    async function buildStemsFromResult(data) {
-      const labels=[
-        {name:'Instrumental',icon:'🎸',desc:'Music without vocals', track:'A'},
-        {name:'Vocals',      icon:'🎤',desc:'Isolated vocal track', track:'B'},
-        {name:'Bass',        icon:'🎵',desc:'Low-end bass track',   track:null},
-        {name:'Drums',       icon:'🥁',desc:'Drums and percussion', track:null},
-      ];
-      const stems=[];
-
-      // FIX 4: Log what came back so you can see exactly what the AI returned
-      console.log('[STEMIX] Raw result data:', data);
-
-      for(let i=0;i<data.length;i++){
-        const item=data[i]; if(!item) { console.warn('[STEMIX] Item',i,'is null/undefined'); continue; }
-
-        const fileUrl=item.url||(item.path?`https://micln-mec.hf.space/file=${item.path}`:null);
-        if(!fileUrl) { console.warn('[STEMIX] Item',i,'has no URL or path:', item); continue; }
-
-        setProgress(88 + Math.min(i, 4), `Loading stem ${i+1} of ${data.length}...`);
-
-        try{
-          const res=await fetch(fileUrl);
-          if(!res.ok) throw new Error(`HTTP ${res.status} fetching stem ${i}`);
-          const arrBuf=await res.arrayBuffer();
-          if(!arrBuf.byteLength) throw new Error(`Stem ${i} returned 0 bytes`);
-          console.log('[STEMIX] Stem',i,'fetched —',arrBuf.byteLength,'bytes');
-          const audBuf=await audioCtx.decodeAudioData(arrBuf.slice(0));
-          const blob=new Blob([arrBuf],{type:'audio/mpeg'});
-          const url=URL.createObjectURL(blob);
-          stems.push({...labels[i],buffer:audBuf,blob,url,arrBuf});
-        }catch(e){
-          // FIX 5: Log individual stem errors clearly — don't swallow them silently
-          console.error('[STEMIX] Stem',i,'failed:', e.message);
-        }
-      }
-
-      if(!stems.length) throw new Error('No audio came back from the AI. Check the browser console for details, then try again.');
-      return stems;
-    }
-
-    // ── SEND EMAIL ────────────────────────────────────
-    async function sendEmail(songName, stemRefs) {
-      if (!currentEmail) return;
-      try {
-        const stemsHTML = stemRefs.map(s =>
-          `${s.icon} ${s.name}: ${s.url}`
-        ).join('\n');
-
-        await window.emailjs.send('service_1027', 'template_n4cw0g5', {
-          to_email:  currentEmail,
-          user_name: currentUser,
-          song_name: songName,
-          stems:     stemsHTML,
-        });
-        console.log('[STEMIX] ✓ Email sent to', currentEmail);
-      } catch(e) {
-        console.warn('[STEMIX] Email failed:', e);
-        // Don't throw — email failure shouldn't break the app
-      }
-    }
-
-    // ── FIREBASE SAVE ─────────────────────────────────
-    async function saveToFirebase(stems) {
-      const jobId    = Date.now().toString();
-      const songName = selectedFile.name.replace(/\.[^.]+$/,'');
-      const cacheKey = `${selectedFile.name}_${selectedFile.size}_${selectedFile.lastModified}`;
-      const stemRefs = [];
-      for(const stem of stems){
-        try{
-          const path  = `stems/${currentUser}/${jobId}/${stem.name}.mp3`;
-          const sRef  = ref(storage, path);
-          await uploadBytes(sRef, stem.arrBuf, {contentType:'audio/mpeg'});
-          const dlURL = await getDownloadURL(sRef);
-          stemRefs.push({name:stem.name, icon:stem.icon, desc:stem.desc, url:dlURL, path});
-        }catch(e){ console.warn('[STEMIX] Upload fail', stem.name, e); }
-      }
-      if(stemRefs.length > 0){
-        await addDoc(collection(db,'history'),{
-          username:currentUser, songName, mode:selectedMode, cacheKey,
-          date:new Date().toISOString(), jobId, stems:stemRefs
-        });
-        // Send email notification with download links
-        sendEmail(songName, stemRefs);
-      }
-    }
-
-    // ── BUILD STEMS FROM CACHED FIREBASE URLS ────────
-    async function buildStemsFromCached(cachedStems) {
-      const labels = [
-        {name:'Instrumental', icon:'🎸', desc:'Music without vocals', track:'A'},
-        {name:'Vocals',       icon:'🎤', desc:'Isolated vocal track', track:'B'},
-        {name:'Bass',         icon:'🎵', desc:'Low-end bass track',   track:null},
-        {name:'Drums',        icon:'🥁', desc:'Drums and percussion', track:null},
-      ];
-      const stems = [];
-      for(const s of cachedStems){
-        try{
-          const res    = await fetch(s.url);
-          const arrBuf = await res.arrayBuffer();
-          const audBuf = await audioCtx.decodeAudioData(arrBuf.slice(0));
-          const blob   = new Blob([arrBuf], {type:'audio/mpeg'});
-          const url    = URL.createObjectURL(blob);
-          const label  = labels.find(l=>l.name===s.name) || {track:null};
-          stems.push({...s, ...label, buffer:audBuf, blob, url, arrBuf});
-        }catch(e){ console.warn('[STEMIX] Cache load fail', s.name, e); }
-      }
-      return stems;
-    }
-
-    // ── FIREBASE LOAD HISTORY ────────────────────────
-    async function loadHistory() {
-      const loading=document.getElementById('historyLoading');
-      const list=document.getElementById('historyList');
-      const filterBar=document.getElementById('historyFilterBar');
-      loading.style.display='block';
-      list.innerHTML=''; allHistoryDocs=[];
-      try{
-        let q;
-        if(isHost){
-          q=query(collection(db,'history'),orderBy('date','desc'));
-        } else {
-          q=query(collection(db,'history'),where('username','==',currentUser),orderBy('date','desc'));
-        }
-        const snap=await getDocs(q);
-        loading.style.display='none';
-        if(snap.empty){
-          list.innerHTML=`<div class="history-empty"><span class="big-icon">🎵</span>${isHost?'No history found for any user yet.':'No history yet — process your first song and it appears here!'}</div>`;
-          filterBar.style.display='none';
-          return;
-        }
-        filterBar.style.display='flex';
-        snap.forEach(docSnap=>{ allHistoryDocs.push({id:docSnap.id, data:docSnap.data()}); });
-        renderHistoryCards(allHistoryDocs);
-      }catch(e){
-        loading.style.display='none';
-        list.innerHTML=`<div class="history-empty">Could not load history. Check Firebase settings.</div>`;
-        console.error(e);
-      }
-    }
-
-    function renderHistoryCards(docs) {
-      const list=document.getElementById('historyList');
-      list.innerHTML='';
-      if(!docs.length){
-        list.innerHTML=`<div class="history-empty"><span class="big-icon">🎵</span>No results found.</div>`;
-        return;
-      }
-      const modeLabel={vocals:'Remove Vocals',instrumental:'Instrumental',stems:'Split All Stems',bass:'Isolate Bass',drums:'Isolate Drums'};
-      docs.forEach(({id,data:d})=>{
-        const date=new Date(d.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
-        const stemsHTML=(d.stems||[]).map(s=>`<a class="hcard-stem-btn" href="${s.url}" download="${d.songName}_${s.name}.mp3" target="_blank">${s.icon} ${s.name}</a>`).join('');
-        const hostBadge=isHost?`<span class="host-only-badge">👤 ${d.username||'unknown'}</span>`:'';
-        const card=document.createElement('div');
-        card.className='history-card';
-        card.dataset.docid=id;
-        card.innerHTML=`
-          <div class="hcard-top">
-            <span class="hcard-icon">🎵</span>
-            <div class="hcard-info">
-              <div class="hcard-name">${d.songName}</div>
-              <div class="hcard-meta">${modeLabel[d.mode]||d.mode} ${hostBadge}</div>
-            </div>
-            <div class="hcard-date">${date}</div>
-          </div>
-          <div class="hcard-stems">${stemsHTML}</div>
-          <div class="hcard-actions">
-            <button class="hcard-delete" onclick="deleteHistory('${id}','${d.jobId}','${d.username||''}',this)">🗑 Delete</button>
-          </div>`;
-        list.appendChild(card);
-      });
-    }
-
-    function filterHistory() {
-      const q=document.getElementById('historySearch').value.toLowerCase();
-      const filtered=allHistoryDocs.filter(({data:d})=>
-        d.songName.toLowerCase().includes(q)||(d.username||'').toLowerCase().includes(q)
-      );
-      renderHistoryCards(filtered);
-    }
-
-    // ── FIREBASE DELETE ───────────────────────────────
-    async function deleteHistory(docId,jobId,username,btn) {
-      if(!isHost && username!==currentUser){alert('You can only delete your own history.');return;}
-      btn.textContent='Deleting...';
-      try{
-        await deleteDoc(doc(db,'history',docId));
-        try{
-          const folderRef=ref(storage,`stems/${username||currentUser}/${jobId}`);
-          const files=await listAll(folderRef);
-          await Promise.all(files.items.map(f=>deleteObject(f)));
-        }catch(e){}
-        btn.closest('.history-card').remove();
-        allHistoryDocs=allHistoryDocs.filter(d=>d.id!==docId);
-        if(!document.querySelector('.history-card')){
-          document.getElementById('historyList').innerHTML=`<div class="history-empty"><span class="big-icon">🎵</span>No history yet.</div>`;
-          document.getElementById('historyFilterBar').style.display='none';
-        }
-      }catch(e){btn.textContent='🗑 Delete';alert('Delete failed: '+e.message);}
-    }
-
-    // ── BUILD RESULTS UI ──────────────────────────────
-    function buildResults(stems){
-      const isMixer=['vocals','instrumental'].includes(selectedMode);
-      document.getElementById('mixerSection').style.display=isMixer?'block':'none';
-      document.getElementById('stemCards').innerHTML='';
-      if(isMixer){
-        const sA=stems.find(s=>s.track==='A');
-        const sB=stems.find(s=>s.track==='B');
-        if(!sA||!sB){showSimpleCards(stems);return;}
-        bufferA=sA.buffer;bufferB=sB.buffer;duration=bufferA.duration;
-        document.getElementById('timeDuration').textContent=fmtTime(duration);
-        document.getElementById('scrubber').value=0;pauseOffset=0;
-        drawWaveform('canvasA',bufferA,'#00ff41');
-        drawWaveform('canvasB',bufferB,'#00cc33');
-        const base=selectedFile.name.replace(/\.[^.]+$/,'');
-        document.getElementById('dlInstrumental').onclick=()=>downloadBlob(sA.blob,base+'_Instrumental.mp3');
-        document.getElementById('dlVocals').onclick=()=>downloadBlob(sB.blob,base+'_Vocals.mp3');
-      }else{showSimpleCards(stems);}
-    }
-
-    function showSimpleCards(stems){
-      const cont=document.getElementById('stemCards');
-      const base=selectedFile.name.replace(/\.[^.]+$/,'');
-      stems.forEach(s=>{
-        const c=document.createElement('div');c.className='stem-card';
-        c.innerHTML=`<div class="stem-top"><span class="stem-icon">${s.icon}</span><div class="stem-info"><div class="stem-name">${s.name}</div><div class="stem-desc">${s.desc}</div></div><a class="dl-btn" href="${s.url}" download="${base}_${s.name}.mp3">↓ Download</a></div><audio controls src="${s.url}"></audio>`;
-        cont.appendChild(c);
-      });
-    }
-
-    // ── WAVEFORM ──────────────────────────────────────
-    function drawWaveform(id,buf,color){
-      const canvas=document.getElementById(id);
-      const dpr=window.devicePixelRatio||1;
-      const W=canvas.parentElement.clientWidth||500,H=60;
-      canvas.width=W*dpr;canvas.height=H*dpr;
-      canvas.style.width=W+'px';canvas.style.height=H+'px';
-      const ctx=canvas.getContext('2d');
-      ctx.scale(dpr,dpr);ctx.clearRect(0,0,W,H);
-      const data=buf.getChannelData(0);
-      const step=Math.ceil(data.length/W),mid=H/2;
-      ctx.shadowBlur=6;ctx.shadowColor=color;ctx.strokeStyle=color;ctx.lineWidth=1;ctx.beginPath();
-      for(let x=0;x<W;x++){
-        let mn=1,mx=-1;const b=x*step;
-        for(let j=0;j<step&&b+j<data.length;j++){const v=data[b+j];if(v<mn)mn=v;if(v>mx)mx=v;}
-        ctx.moveTo(x,mid+mn*mid*0.9);ctx.lineTo(x,mid+mx*mid*0.9);
-      }
-      ctx.stroke();
-    }
-
-    // ── PLAYBACK ──────────────────────────────────────
-    function startPlayback(){
-      if(!bufferA||!bufferB)return;
-      if(audioCtx.state==='suspended')audioCtx.resume();
-      stopNodes();
-      gainA=audioCtx.createGain();gainA.gain.value=volA;
-      gainB=audioCtx.createGain();gainB.gain.value=volB;
-      sourceA=audioCtx.createBufferSource();sourceA.buffer=bufferA;
-      sourceB=audioCtx.createBufferSource();sourceB.buffer=bufferB;
-      sourceA.connect(gainA);gainA.connect(audioCtx.destination);
-      sourceB.connect(gainB);gainB.connect(audioCtx.destination);
-      const off=Math.min(pauseOffset,duration-0.05);
-      startTime=audioCtx.currentTime-off;
-      sourceA.start(0,off);sourceB.start(0,off);
-      sourceA.onended=()=>{if(isPlaying)onEnded();};
-      isPlaying=true;
-      document.getElementById('playBtn').innerHTML='⏸';
-      document.getElementById('playBtn').classList.add('playing');
-      animate();
-    }
-    function pausePlayback(){
-      pauseOffset=audioCtx.currentTime-startTime;stopNodes();isPlaying=false;
-      document.getElementById('playBtn').innerHTML='▶';
-      document.getElementById('playBtn').classList.remove('playing');
-      cancelAnimationFrame(rafId);
-    }
-    function stopPlayback(){
-      stopNodes();isPlaying=false;pauseOffset=0;
-      const b=document.getElementById('playBtn');
-      if(b){b.innerHTML='▶';b.classList.remove('playing');}
-      cancelAnimationFrame(rafId);setPlayheads(0);
-    }
-    function stopNodes(){
-      try{if(sourceA){sourceA.onended=null;sourceA.stop();}}catch(e){}
-      try{if(sourceB){sourceB.stop();}}catch(e){}
-      sourceA=sourceB=null;
-    }
-    function onEnded(){
-      isPlaying=false;pauseOffset=0;
-      document.getElementById('playBtn').innerHTML='▶';
-      document.getElementById('playBtn').classList.remove('playing');
-      cancelAnimationFrame(rafId);setPlayheads(0);
-      document.getElementById('scrubber').value=0;
-      document.getElementById('timeCurrent').textContent='0:00';
-      document.getElementById('mixerTime').textContent='0:00';
-    }
-    function animate(){
-      rafId=requestAnimationFrame(()=>{
-        if(!isPlaying)return;
-        const el=audioCtx.currentTime-startTime;
-        const fr=Math.min(el/duration,1);
-        setPlayheads(fr);
-        document.getElementById('scrubber').value=Math.round(fr*1000);
-        document.getElementById('timeCurrent').textContent=fmtTime(el);
-        document.getElementById('mixerTime').textContent=fmtTime(el);
-        if(fr<1)animate();else onEnded();
-      });
-    }
-    function setPlayheads(fr){
-      ['A','B'].forEach(t=>{
-        const w=document.getElementById('waveform'+t);
-        const p=document.getElementById('playhead'+t);
-        if(w&&p)p.style.left=(fr*w.clientWidth)+'px';
-      });
-    }
-    function seekClick(e,t){
-      const r=e.currentTarget.getBoundingClientRect();
-      scrubTo(Math.round(((e.clientX-r.left)/r.width)*1000));
-    }
-    function scrubTo(val){
-      pauseOffset=(val/1000)*duration;
-      document.getElementById('scrubber').value=val;
-      document.getElementById('timeCurrent').textContent=fmtTime(pauseOffset);
-      document.getElementById('mixerTime').textContent=fmtTime(pauseOffset);
-      setPlayheads(val/1000);
-      if(isPlaying)startPlayback();
-    }
-    function updateVol(t,val){
-      const g=val/100;
-      document.getElementById('vol'+t+'Val').textContent=val+'%';
-      if(t==='A'){volA=g;if(gainA)gainA.gain.value=volA;}
-      else       {volB=g;if(gainB)gainB.gain.value=volB;}
-    }
-    function fmtTime(s){s=Math.max(0,s||0);const m=Math.floor(s/60),sec=Math.floor(s%60);return m+':'+(sec<10?'0':'')+sec;}
-
-    // ── EXPORT ────────────────────────────────────────
-    function exportMixed(){
-      if(!bufferA||!bufferB)return;
-      const base=selectedFile.name.replace(/\.[^.]+$/,'');
-      downloadBlob(mixToWav(bufferA,bufferB,volA,volB),base+'_Mixed.wav');
-    }
-    function mixToWav(bA,bB,gA,gB){
-      const nCh=Math.max(bA.numberOfChannels,bB.numberOfChannels);
-      const ns=Math.max(bA.length,bB.length),sr=bA.sampleRate;
-      const dSz=ns*nCh*2,ab=new ArrayBuffer(44+dSz),v=new DataView(ab);
-      const ws=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));};
-      ws(0,'RIFF');v.setUint32(4,36+dSz,true);ws(8,'WAVE');ws(12,'fmt ');
-      v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,nCh,true);
-      v.setUint32(24,sr,true);v.setUint32(28,sr*nCh*2,true);
-      v.setUint16(32,nCh*2,true);v.setUint16(34,16,true);
-      ws(36,'data');v.setUint32(40,dSz,true);
-      let off=44;
-      for(let i=0;i<ns;i++){
-        for(let c=0;c<nCh;c++){
-          const sA=i<bA.length?bA.getChannelData(Math.min(c,bA.numberOfChannels-1))[i]*gA:0;
-          const sB=i<bB.length?bB.getChannelData(Math.min(c,bB.numberOfChannels-1))[i]*gB:0;
-          const s=Math.max(-1,Math.min(1,sA+sB));
-          v.setInt16(off,s<0?s*32768:s*32767,true);off+=2;
-        }
-      }
-      return new Blob([ab],{type:'audio/wav'});
-    }
-    function downloadBlob(blob,name){
-      const url=URL.createObjectURL(blob),a=document.createElement('a');
-      a.href=url;a.download=name;document.body.appendChild(a);a.click();
-      document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),5000);
-    }
-
-    // ── RESET ─────────────────────────────────────────
-    function resetAll(){
-      stopPlayback();
-      selectedFile=bufferA=bufferB=null;
-      compressedFile=null; compressPromise=null;
-      processingPromise=null; processingResult=null;
-      processedStems=null; processedError=null;
-      ['fileInfo','results','progressSection','errorBox','saveIndicator'].forEach(id=>
-        document.getElementById(id).classList.remove('visible'));
-      document.getElementById('processBtn').style.display = 'none';
-      document.getElementById('compressStats').style.display = 'none';
-      document.getElementById('progressBar').style.width='0%';
-      document.getElementById('stemCards').innerHTML='';
-      fileInput.value=''; pauseOffset=0;
-    }
-  </script>
+    await set(ref(db,'hotline'), defaults);
+  }
+  // live listener
+  onValue(ref(db,'hotline'), snap => {
+    hotlineData = snap.val() || {};
+    PIN = hotlineData.settings?.pin || '2011';
+    renderCurrentMenu();
+    updateVmBadge();
+    renderTwimlBins();
+  });
+}
+
+// ── PIN LOGIN ────────────────────────────────────────────────────────────────
+document.querySelectorAll('.nk[data-n]').forEach(b => b.addEventListener('click', () => addPin(b.dataset.n)));
+document.getElementById('delBtn').addEventListener('click', delPin);
+document.getElementById('goBtn').addEventListener('click', checkPin);
+
+function addPin(n) {
+  if (pinEntry.length >= 4) return;
+  pinEntry += n;
+  updatePinDots();
+  if (pinEntry.length === 4) checkPin();
+}
+function delPin() { pinEntry = pinEntry.slice(0,-1); updatePinDots(); }
+function updatePinDots() {
+  for (let i=0;i<4;i++) document.getElementById('d'+i).classList.toggle('filled', i < pinEntry.length);
+}
+function checkPin() {
+  if (pinEntry === PIN) {
+    document.getElementById('loginScreen').classList.remove('active');
+    document.getElementById('dashboard').classList.add('active');
+    loadSettings();
+    bootstrap();
+  } else {
+    const e = document.getElementById('loginErr');
+    e.classList.remove('hidden');
+    pinEntry=''; updatePinDots();
+    setTimeout(()=>e.classList.add('hidden'),2000);
+  }
+}
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  document.getElementById('dashboard').classList.remove('active');
+  document.getElementById('loginScreen').classList.add('active');
+  pinEntry=''; updatePinDots();
+});
+
+// ── TABS ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  document.getElementById('tab-'+b.dataset.tab).classList.add('active');
+  if (b.dataset.tab==='voicemails') loadVoicemails();
+}));
+
+// ── RENDER MENU ──────────────────────────────────────────────────────────────
+function renderCurrentMenu() {
+  const menu = hotlineData.menus?.[currentMenuId];
+  if (!menu) return;
+  renderBreadcrumb();
+  const panel = document.getElementById('menuPanel');
+  const buttons = menu.buttons || {};
+
+  let html = `
+  <div class="greeting-bar">
+    <div class="greeting-info">
+      <strong>🎙 Menu Greeting</strong>
+      <span>${menu.greeting ? '✅ Recorded' : '⚠️ No greeting yet — callers will hear a default message'}</span>
+    </div>
+    <div class="gb-actions">
+      ${menu.greeting ? `<button class="ab success" onclick="playAudio('${menu.greeting}')">▶ Preview</button>` : ''}
+      <button class="ab primary" onclick="openRecModal({menuId:'${currentMenuId}',isGreeting:true})">🎙 ${menu.greeting?'Re-record':'Record Greeting'}</button>
+    </div>
+  </div>
+  <div class="btn-grid">`;
+
+  Object.values(buttons).sort((a,b)=>Number(a.digit)-Number(b.digit)).forEach(btn => {
+    const typeLabel = {recording:'🔊 Play Recording',submenu:'📂 Sub-Menu',forward:'📞 Call Forward',transfer:'🔀 Transfer',voicemail:'📬 Voicemail'}[btn.type]||btn.type;
+    const hasRec = btn.recording || btn.type==='submenu'||btn.type==='forward'||btn.type==='transfer'||btn.type==='voicemail';
+    html += `
+    <div class="btn-card">
+      <div class="btn-card-top">
+        <div class="btn-num">${btn.digit}</div>
+        <div>
+          <div class="btn-label">${btn.label||'Button '+btn.digit}</div>
+          <div class="btn-type-tag">${typeLabel}${btn.forwardTo?' → '+btn.forwardTo:''}</div>
+        </div>
+      </div>
+      <div class="btn-actions">
+        ${btn.type==='recording'?`<button class="ab primary" onclick="openRecModal({menuId:'${currentMenuId}',digit:'${btn.digit}'})">🎙 ${btn.recording?'Re-record':'Record'}</button>`:''}
+        ${btn.type==='recording'&&btn.recording?`<button class="ab success" onclick="playAudio('${btn.recording}')">▶ Play</button>`:''}
+        ${btn.type==='transfer'?`<button class="ab" onclick="openRecModal({menuId:'${currentMenuId}',digit:'${btn.digit}',isWhisper:true})">🔊 Whisper</button>`:''}
+        ${btn.type==='submenu'?`<button class="ab primary" onclick="openSubMenu('${btn.menuId||''}','${btn.label||'Sub-Menu'}')">📂 Open</button>`:''}
+        <button class="ab" onclick="editBtn('${btn.digit}')">✏️ Edit</button>
+        <button class="ab danger" onclick="deleteBtn('${btn.digit}')">🗑</button>
+      </div>
+    </div>`;
+  });
+
+  html += `</div>
+  <button class="add-card" onclick="openAddBtn()">＋ Add a Button</button>`;
+  panel.innerHTML = html;
+}
+
+function renderBreadcrumb() {
+  const bc = document.getElementById('bc');
+  bc.innerHTML = breadcrumbStack.map((item,i) => {
+    if (i === breadcrumbStack.length-1) return `<span class="bc-cur">${item.label}</span>`;
+    return `<span class="bc-item" onclick="jumpToMenu(${i})">${item.label}</span><span class="bc-sep">›</span>`;
+  }).join('');
+}
+
+function jumpToMenu(idx) {
+  breadcrumbStack = breadcrumbStack.slice(0, idx+1);
+  currentMenuId = breadcrumbStack[breadcrumbStack.length-1].id;
+  renderCurrentMenu();
+}
+
+window.openSubMenu = function(menuId, label) {
+  if (!menuId || !hotlineData.menus?.[menuId]) {
+    alert('Sub-menu not created yet. Save the button first.');
+    return;
+  }
+  breadcrumbStack.push({ id:menuId, label });
+  currentMenuId = menuId;
+  renderCurrentMenu();
+};
+
+window.playAudio = function(url) {
+  new Audio(url).play();
+};
+
+// ── ADD / EDIT BUTTON ────────────────────────────────────────────────────────
+let editingDigit = null;
+
+window.openAddBtn = function() {
+  editingDigit = null;
+  document.getElementById('btnModalTitle').textContent = 'Add Button';
+  document.getElementById('bDigit').value = '';
+  document.getElementById('bLabel').value = '';
+  document.getElementById('bType').value = 'recording';
+  document.getElementById('bForwardTo').value = '';
+  document.getElementById('fwdFields').classList.add('hidden');
+  document.getElementById('btnModal').classList.remove('hidden');
+};
+
+window.editBtn = function(digit) {
+  const btn = hotlineData.menus[currentMenuId].buttons[digit];
+  editingDigit = digit;
+  document.getElementById('btnModalTitle').textContent = 'Edit Button';
+  document.getElementById('bDigit').value = btn.digit;
+  document.getElementById('bLabel').value = btn.label||'';
+  document.getElementById('bType').value = btn.type||'recording';
+  document.getElementById('bForwardTo').value = btn.forwardTo||'';
+  toggleFwdFields(btn.type);
+  document.getElementById('btnModal').classList.remove('hidden');
+};
+
+document.getElementById('bType').addEventListener('change', e => toggleFwdFields(e.target.value));
+function toggleFwdFields(type) {
+  document.getElementById('fwdFields').classList.toggle('hidden', !['forward','transfer'].includes(type));
+}
+
+window.closeBtnModal = function() { document.getElementById('btnModal').classList.add('hidden'); };
+
+document.getElementById('saveBtnBtn').addEventListener('click', async () => {
+  const digit    = document.getElementById('bDigit').value.trim();
+  const label    = document.getElementById('bLabel').value.trim()||'Button '+digit;
+  const type     = document.getElementById('bType').value;
+  const forwardTo= document.getElementById('bForwardTo').value.trim();
+
+  if (!digit||isNaN(digit)||digit<1||digit>20) return alert('Enter a number 1–20');
+
+  const menu   = hotlineData.menus[currentMenuId];
+  const oldBtn = menu.buttons?.[digit]||{};
+
+  let menuIdTarget = oldBtn.menuId;
+  if (type==='submenu' && !menuIdTarget) {
+    menuIdTarget = 'menu_'+currentMenuId+'_'+digit+'_'+Date.now();
+    await set(ref(db,`hotline/menus/${menuIdTarget}`), { id:menuIdTarget, label, greeting:null, buttons:{} });
+  }
+
+  const btn = { digit, label, type, ...(forwardTo&&{forwardTo}), ...(menuIdTarget&&{menuId:menuIdTarget}) };
+  await set(ref(db,`hotline/menus/${currentMenuId}/buttons/${digit}`), btn);
+  closeBtnModal();
+});
+
+window.deleteBtn = async function(digit) {
+  if (!confirm('Delete button '+digit+'?')) return;
+  const btn = hotlineData.menus[currentMenuId].buttons[digit];
+  if (btn?.recording) try { await deleteObject(sref(storage, btn.recording)); } catch(e){}
+  if (btn?.menuId) await set(ref(db,`hotline/menus/${btn.menuId}`), null);
+  await set(ref(db,`hotline/menus/${currentMenuId}/buttons/${digit}`), null);
+};
+
+// ── RECORDER ─────────────────────────────────────────────────────────────────
+window.openRecModal = function(ctx) {
+  recContext = ctx;
+  recBlob    = null;
+  const titles = {
+    greeting: `Record Greeting for "${hotlineData.menus[ctx.menuId]?.label||ctx.menuId}"`,
+    whisper:  `Record Whisper for Button ${ctx.digit}`,
+    normal:   `Record Audio for Button ${ctx.digit}`
+  };
+  const key = ctx.isGreeting?'greeting':ctx.isWhisper?'whisper':'normal';
+  document.getElementById('recModalTitle').textContent = titles[key];
+  document.getElementById('recModalSub').textContent   = ctx.isWhisper?'Only the person receiving the transfer will hear this.':'';
+  resetRecorder();
+  document.getElementById('recModal').classList.remove('hidden');
+  document.getElementById('uploadFile').onchange = handleUpload;
+};
+window.closeRecModal = function() {
+  stopRecording();
+  document.getElementById('recModal').classList.add('hidden');
+};
+
+function resetRecorder() {
+  recBlob=null; recChunks=[];
+  document.getElementById('recStatus').textContent='Ready — press Record to start';
+  document.getElementById('recStatus').classList.remove('live');
+  document.getElementById('recStart').classList.remove('hidden');
+  document.getElementById('recStop').classList.add('hidden');
+  document.getElementById('recPreview').classList.add('hidden');
+  document.getElementById('recSaveRow').classList.add('hidden');
+  document.querySelectorAll('.viz-b').forEach(b=>b.classList.remove('active'));
+}
+
+document.getElementById('recStart').addEventListener('click', async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    mediaRec = new MediaRecorder(stream);
+    recChunks = [];
+    mediaRec.ondataavailable = e => recChunks.push(e.data);
+    mediaRec.onstop = () => {
+      recBlob = new Blob(recChunks, {type:'audio/webm'});
+      const url = URL.createObjectURL(recBlob);
+      const preview = document.getElementById('recPreview');
+      preview.src = url;
+      preview.classList.remove('hidden');
+      document.getElementById('recSaveRow').classList.remove('hidden');
+      document.getElementById('recStatus').textContent='Done! Preview your recording below.';
+      document.getElementById('recStatus').classList.remove('live');
+      document.querySelectorAll('.viz-b').forEach(b=>b.classList.remove('active'));
+      stream.getTracks().forEach(t=>t.stop());
+    };
+    mediaRec.start();
+    document.getElementById('recStart').classList.add('hidden');
+    document.getElementById('recStop').classList.remove('hidden');
+    document.getElementById('recStatus').textContent='🔴 Recording…';
+    document.getElementById('recStatus').classList.add('live');
+    document.querySelectorAll('.viz-b').forEach(b=>b.classList.add('active'));
+  } catch(e) {
+    alert('Microphone access denied. Please allow microphone access and try again.');
+  }
+});
+
+document.getElementById('recStop').addEventListener('click', stopRecording);
+function stopRecording() { if(mediaRec&&mediaRec.state!=='inactive') mediaRec.stop(); }
+
+document.getElementById('recRedo').addEventListener('click', resetRecorder);
+
+document.getElementById('recSave').addEventListener('click', async () => {
+  if (!recBlob) return;
+  await uploadAudio(recBlob, 'webm');
+});
+
+async function handleUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  await uploadAudio(file, file.name.split('.').pop());
+}
+
+async function uploadAudio(blob, ext) {
+  document.getElementById('recStatus').textContent = '⬆️ Uploading…';
+  const ctx      = recContext;
+  const fileName = `audio/${ctx.menuId}_${ctx.isGreeting?'greeting':ctx.isWhisper?'whisper_btn'+ctx.digit:'btn'+ctx.digit}_${Date.now()}.${ext}`;
+  const storRef  = sref(storage, fileName);
+  await uploadBytes(storRef, blob);
+  const url = await getDownloadURL(storRef);
+
+  if (ctx.isGreeting) {
+    await set(ref(db,`hotline/menus/${ctx.menuId}/greeting`), url);
+  } else if (ctx.isWhisper) {
+    await set(ref(db,`hotline/menus/${ctx.menuId}/buttons/${ctx.digit}/whisper`), url);
+  } else {
+    await set(ref(db,`hotline/menus/${ctx.menuId}/buttons/${ctx.digit}/recording`), url);
+  }
+  document.getElementById('recStatus').textContent = '✅ Saved!';
+  setTimeout(closeRecModal, 1000);
+}
+
+// ── VOICEMAILS ───────────────────────────────────────────────────────────────
+window.loadVoicemails = function() {
+  get(ref(db,'hotline/voicemails')).then(snap => {
+    const list  = document.getElementById('vmList');
+    const vms   = snap.val();
+    if (!vms) { list.innerHTML = '<div class="empty"><div class="ei">📭</div>No voicemails yet</div>'; return; }
+    const arr   = Object.values(vms).reverse();
+    list.innerHTML = arr.map(vm => `
+      <div class="vm-card ${vm.heard?'':'unheard'}">
+        <div class="vm-info">
+          <div class="vm-from">📞 ${vm.from||'Unknown caller'} ${vm.heard?'':'<span class="new-pill">NEW</span>'}</div>
+          <div class="vm-meta">${new Date(vm.date).toLocaleString()} · ${vm.duration||'?'}s</div>
+        </div>
+        <audio controls src="${vm.url}" style="height:36px" onplay="markHeard('${vm.id}')"></audio>
+      </div>`).join('');
+    updateVmBadge();
+  });
+};
+
+window.markHeard = async function(id) {
+  await set(ref(db,`hotline/voicemails/${id}/heard`), true);
+};
+
+function updateVmBadge() {
+  const vms   = hotlineData.voicemails||{};
+  const count = Object.values(vms).filter(v=>!v.heard).length;
+  const badge = document.getElementById('vmBadge');
+  if (count > 0) { badge.textContent=count; badge.classList.remove('hidden'); }
+  else badge.classList.add('hidden');
+}
+
+// ── SETTINGS ─────────────────────────────────────────────────────────────────
+function loadSettings() {
+  const s = hotlineData.settings||{};
+  document.getElementById('hostNumber').value  = s.hostNumber||'';
+  document.getElementById('newPin').value      = '';
+  document.getElementById('comingSoon').value  = s.comingSoon||'';
+  const base = window.location.origin;
+  document.getElementById('webhookMain').textContent = base+'/api/phone/start';
+}
+
+document.getElementById('saveSettings').addEventListener('click', async () => {
+  const updates = {};
+  const hn = document.getElementById('hostNumber').value.trim();
+  const np = document.getElementById('newPin').value.trim();
+  const cs = document.getElementById('comingSoon').value.trim();
+  if (hn) updates.hostNumber = hn;
+  if (np && np.length===4 && !isNaN(np)) updates.pin = np;
+  if (cs) updates.comingSoon = cs;
+  const curr = hotlineData.settings||{};
+  await set(ref(db,'hotline/settings'), {...curr,...updates});
+  const ok = document.getElementById('settingsOk');
+  ok.classList.remove('hidden');
+  setTimeout(()=>ok.classList.add('hidden'),2000);
+});
+
+window.copyText = function(id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(()=>alert('Copied!'));
+};
+
+// ── TWIML BINS GENERATOR ─────────────────────────────────────────────────────
+function renderTwimlBins() {
+  const container = document.getElementById('twimlBins');
+  if (!container||!hotlineData.menus) return;
+  const base      = window.location.origin;
+  let html        = '';
+
+  Object.values(hotlineData.menus).forEach(menu => {
+    const twiml = generateTwiml(menu, base);
+    html += `
+    <div style="margin-bottom:18px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <strong style="font-size:.85rem">${menu.label||menu.id}</strong>
+        <button class="copy-btn" onclick="copyTwiml('twiml_${menu.id}')">Copy TwiML</button>
+      </div>
+      <div class="twiml-box" id="twiml_${menu.id}">${escHtml(twiml)}</div>
+      <p class="hint">→ In Twilio, go to Explore Products → TwiML Bins → Create new TwiML Bin → paste the above → save → copy the Bin URL.</p>
+    </div>`;
+  });
+  container.innerHTML = html;
+}
+
+function generateTwiml(menu, base) {
+  const buttons  = menu.buttons||{};
+  const cs       = hotlineData.settings?.comingSoon||'This option is coming soon.';
+  const greeting = menu.greeting || null;
+
+  let inner = '';
+  if (greeting) inner += `\n    <Play>${greeting}</Play>`;
+  else inner += `\n    <Say>Welcome. Please press a number to continue.</Say>`;
+
+  // Build valid digit list
+  const digits = Object.keys(buttons).sort((a,b)=>Number(a)-Number(b));
+
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Gather numDigits="2" action="${base}/api/phone/input?menuId=${menu.id}" method="POST" timeout="10">${inner}
+  </Gather>
+  <Redirect>${base}/api/phone/menu?menuId=${menu.id}</Redirect>
+</Response>`;
+  return xml;
+}
+
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+window.copyTwiml = function(id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(()=>alert('TwiML copied! Now paste it into a new Twilio TwiML Bin.'));
+};
+
+// ── START ────────────────────────────────────────────────────────────────────
+bootstrap();
+</script>
 </body>
 </html>
