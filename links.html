@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Media & Links — Family Board</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#FFC93C" />
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap');
+
+  :root {
+    --cream: #FFF9EC;
+    --yellow: #FFC93C;
+    --yellow-dark: #E0A800;
+    --plum: #3A2E4D;
+    --line: #F0DFC4;
+    --font-display: 'Fredoka', sans-serif;
+    --font-body: 'Nunito', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--cream); color: var(--plum); font-family: var(--font-body); line-height: 1.5; min-height: 100vh; }
+  .topbar { background: var(--plum); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; }
+  .topbar .home-link { color: #fff; text-decoration: none; font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; }
+  .who { font-size: 0.85rem; display: flex; align-items: center; gap: 14px; }
+  .who span { color: var(--yellow); font-weight: 600; }
+  .who button { background: var(--yellow); border: none; color: var(--plum); border-radius: 10px; padding: 6px 12px; font-family: var(--font-body); font-weight: 700; font-size: 0.8rem; cursor: pointer; }
+  main { max-width: 720px; margin: 0 auto; padding: 36px 24px; }
+  h1 { font-family: var(--font-display); font-weight: 600; margin: 0 0 4px 0; font-size: 1.8rem; }
+  .subtitle { color: #71647f; margin: 0 0 24px 0; font-size: 0.9rem; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-family: var(--font-display); font-size: 0.9rem; color: var(--plum); margin-bottom: 4px; }
+  input {
+    font-family: var(--font-body); font-size: 1rem; padding: 12px 14px;
+    border: 2px solid var(--line); border-radius: 14px; background: #fff; width: 100%;
+  }
+  input:focus { outline: none; border-color: var(--yellow-dark); }
+  button.primary {
+    background: var(--yellow); color: var(--plum); border: 3px solid var(--plum); border-radius: 14px;
+    padding: 10px 22px; font-family: var(--font-display); font-size: 1rem; font-weight: 600; cursor: pointer;
+    box-shadow: 3px 3px 0 var(--plum);
+  }
+  button.primary:hover { background: var(--yellow-dark); }
+  button.primary:active { transform: translate(3px, 3px); box-shadow: none; }
+  .host-note {
+    background: #fff; border: 2px dashed var(--line); border-radius: 14px; padding: 16px;
+    color: #71647f; font-size: 0.9rem; margin-bottom: 24px;
+  }
+  .link-list { display: flex; flex-direction: column; gap: 22px; }
+  .link-item { border: 3px solid var(--plum); border-radius: 18px; overflow: hidden; background: #fff; box-shadow: 4px 4px 0 var(--yellow); }
+  .link-item h4 {
+    margin: 0; padding: 14px 16px; font-family: var(--font-display); font-weight: 600;
+    border-bottom: 3px solid var(--plum); background: #FFF3D2;
+  }
+  .link-item iframe { width: 100%; height: 180px; border: none; display: block; }
+  .empty-state { color: #9a8fa8; font-style: italic; padding: 24px 0; }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="home-link" href="index.html">← Family Board</a>
+    <div class="who">
+      <span id="user-name">…</span>
+      <button id="switch-user-btn">Switch user</button>
+    </div>
+  </header>
+
+  <main>
+    <h1>🎵 Media &amp; Links</h1>
+    <p class="subtitle">
+      Videos, music, and pages the host has shared — embedded right here.
+    </p>
+
+    <div id="add-form-slot"></div>
+
+    <div class="link-list" id="link-list">
+      <p class="empty-state">Loading…</p>
+    </div>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+    import {
+      getFirestore, doc, onSnapshot, collection, addDoc, query, orderBy, deleteDoc
+    } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDei0N8qUbKVskUXkKcskxcXMaCjdewEXc",
+      authDomain: "fam-pwa.firebaseapp.com",
+      projectId: "fam-pwa",
+      storageBucket: "fam-pwa.firebasestorage.app",
+      messagingSenderId: "162318566018",
+      appId: "1:162318566018:web:ad5c85d950745c2022aa9b",
+      measurementId: "G-479LTFL24S"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let member = null;
+
+    function ensureAnonAuth() {
+      return new Promise((resolve) => {
+        const unsub = onAuthStateChanged(auth, (user) => {
+          if (user) { unsub(); resolve(user); }
+          else { signInAnonymously(auth); }
+        });
+      });
+    }
+
+    document.getElementById("switch-user-btn").addEventListener("click", () => {
+      localStorage.removeItem("myMemberId");
+      window.location.href = "passcode.html";
+    });
+
+    let linksStarted = false;
+    async function boot() {
+      const myId = localStorage.getItem("myMemberId");
+      if (!myId) { window.location.href = "passcode.html"; return; }
+      await ensureAnonAuth();
+
+      onSnapshot(doc(db, "members", myId), (snap) => {
+        if (!snap.exists() || snap.data().status !== "approved") {
+          window.location.href = "join.html";
+          return;
+        }
+        member = { id: myId, ...snap.data() };
+        document.getElementById("user-name").textContent = member.name + (member.isHost ? " 👑" : "");
+
+        const slot = document.getElementById("add-form-slot");
+        if (member.isHost && !document.getElementById("link-form")) {
+          slot.innerHTML = `
+            <form id="link-form" style="margin: 24px 0;">
+              <div class="field">
+                <label for="link-title">Label</label>
+                <input type="text" id="link-title" placeholder="e.g. Grandma's birthday playlist" required />
+              </div>
+              <div class="field">
+                <label for="link-url">URL</label>
+                <input type="url" id="link-url" placeholder="https://…" required />
+              </div>
+              <button type="submit" class="primary">Add it 📌</button>
+            </form>
+          `;
+          document.getElementById("link-form").addEventListener("submit", onAddLink);
+        } else if (!member.isHost) {
+          slot.innerHTML = `<p class="host-note">🔒 Only the host can add new media here.</p>`;
+        }
+
+        if (!linksStarted) { linksStarted = true; startLinks(); }
+      });
+    }
+
+    async function onAddLink(e) {
+      e.preventDefault();
+      const title = document.getElementById("link-title").value.trim();
+      const url = document.getElementById("link-url").value.trim();
+      if (!title || !url) return;
+      await addDoc(collection(db, "media_links"), {
+        title, url, addedById: member.id, addedByName: member.name, createdAt: Date.now()
+      });
+      e.target.reset();
+    }
+
+    function startLinks() {
+      const listEl = document.getElementById("link-list");
+      const linksRef = collection(db, "media_links");
+      const q = query(linksRef, orderBy("createdAt", "desc"));
+
+      onSnapshot(q, (snapshot) => {
+        if (snapshot.empty) {
+          listEl.innerHTML = '<p class="empty-state">Nothing saved yet.</p>';
+          return;
+        }
+        listEl.innerHTML = "";
+        snapshot.forEach((docSnap) => {
+          const item = docSnap.data();
+          const canDelete = item.addedById === member.id || member.isHost;
+          const embedUrl = toEmbeddable(item.url);
+          const wrap = document.createElement("div");
+          wrap.className = "link-item";
+          wrap.innerHTML = `
+            <h4>${escapeHtml(item.title)}
+              ${canDelete ? `<button class="delete" data-id="${docSnap.id}" style="float:right; background:none; border:none; color:#b3a8bf; cursor:pointer; font-weight:700;">Remove</button>` : ""}
+            </h4>
+            <iframe src="${embedUrl}" loading="lazy" allow="autoplay; encrypted-media; fullscreen"></iframe>
+          `;
+          listEl.appendChild(wrap);
+        });
+        listEl.querySelectorAll(".delete").forEach((btn) => {
+          btn.addEventListener("click", () => deleteDoc(doc(db, "media_links", btn.dataset.id)));
+        });
+      });
+    }
+
+    function toEmbeddable(url) {
+      try {
+        const u = new URL(url);
+        if (u.hostname.includes("youtube.com") && u.searchParams.get("v")) {
+          return `https://www.youtube.com/embed/${u.searchParams.get("v")}`;
+        }
+        if (u.hostname === "youtu.be") {
+          return `https://www.youtube.com/embed${u.pathname}`;
+        }
+        if (u.hostname.includes("open.spotify.com")) {
+          return url.replace("open.spotify.com/", "open.spotify.com/embed/");
+        }
+        return url;
+      } catch {
+        return url;
+      }
+    }
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    boot();
+  </script>
+</body>
+</html>

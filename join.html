@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Join — Family Board</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#FF6F91" />
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap');
+
+  :root {
+    --cream: #FFF9EC;
+    --pink: #FF6F91;
+    --pink-dark: #E8496C;
+    --yellow: #FFC93C;
+    --green: #6BCB77;
+    --plum: #3A2E4D;
+    --line: #F0DFC4;
+    --font-display: 'Fredoka', sans-serif;
+    --font-body: 'Nunito', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--cream);
+    background-image: radial-gradient(var(--yellow) 2px, transparent 2px);
+    background-size: 28px 28px;
+    background-position: -6px -6px;
+    color: var(--plum);
+    font-family: var(--font-body);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  main { max-width: 400px; margin: 0 auto; padding: 70px 24px 24px; }
+  .card {
+    background: #fff; border: 3px solid var(--plum); border-radius: 24px;
+    padding: 32px 28px; box-shadow: 6px 6px 0 var(--pink); text-align: center;
+  }
+  .card.waiting { box-shadow: 6px 6px 0 var(--yellow); }
+  .card.blocked { box-shadow: 6px 6px 0 var(--plum); }
+  h1 { font-family: var(--font-display); font-weight: 600; font-size: 1.6rem; margin: 0 0 8px 0; }
+  .subtitle { color: #71647f; margin: 0 0 20px 0; }
+  .field { margin-bottom: 16px; text-align: left; }
+  .field label { display: block; font-family: var(--font-display); font-size: 0.9rem; margin-bottom: 4px; }
+  input {
+    font-family: var(--font-body); font-size: 1rem; padding: 12px 14px;
+    border: 2px solid var(--line); border-radius: 14px; background: var(--cream); width: 100%;
+  }
+  input:focus { outline: none; border-color: var(--pink); }
+  button.primary {
+    background: var(--pink); color: #fff; border: 3px solid var(--plum); border-radius: 14px;
+    padding: 12px 20px; font-family: var(--font-display); font-size: 1.05rem; font-weight: 600;
+    cursor: pointer; width: 100%; box-shadow: 3px 3px 0 var(--plum); transition: transform 0.08s ease;
+  }
+  button.primary:hover { background: var(--pink-dark); }
+  button.primary:active { transform: translate(3px, 3px); box-shadow: none; }
+  #error { color: var(--pink-dark); font-size: 0.85rem; margin-top: 12px; min-height: 1.2em; font-weight: 600; }
+  .big-emoji { font-size: 3rem; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+  <main>
+    <div class="card" id="card">
+      <p>Loading…</p>
+    </div>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+    import {
+      getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+    // ---- Set the host's phone number here (digits only). Whoever ----
+    // ---- registers with this number automatically becomes host.  ----
+    const HOST_PHONE = "5551234567";
+    // -------------------------------------------------------------------
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDei0N8qUbKVskUXkKcskxcXMaCjdewEXc",
+      authDomain: "fam-pwa.firebaseapp.com",
+      projectId: "fam-pwa",
+      storageBucket: "fam-pwa.firebasestorage.app",
+      messagingSenderId: "162318566018",
+      appId: "1:162318566018:web:ad5c85d950745c2022aa9b",
+      measurementId: "G-479LTFL24S"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const cardEl = document.getElementById("card");
+
+    function normalizePhone(p) { return p.replace(/\D/g, ""); }
+
+    function ensureAnonAuth() {
+      return new Promise((resolve) => {
+        const unsub = onAuthStateChanged(auth, (user) => {
+          if (user) { unsub(); resolve(user); }
+          else { signInAnonymously(auth); }
+        });
+      });
+    }
+
+    function showForm() {
+      cardEl.className = "card";
+      cardEl.innerHTML = `
+        <h1>👋 Who's this?</h1>
+        <p class="subtitle">Tell us your name and phone number.</p>
+        <form id="join-form">
+          <div class="field">
+            <label for="name">Your name</label>
+            <input type="text" id="name" required />
+          </div>
+          <div class="field">
+            <label for="phone">Your phone number</label>
+            <input type="tel" id="phone" required placeholder="555-123-4567" />
+          </div>
+          <button type="submit" class="primary">Join the family board →</button>
+          <p id="error"></p>
+        </form>
+      `;
+      document.getElementById("join-form").addEventListener("submit", onSubmit);
+    }
+
+    function showWaiting() {
+      cardEl.className = "card waiting";
+      cardEl.innerHTML = `
+        <div class="big-emoji">⏳</div>
+        <h1>Almost there!</h1>
+        <p class="subtitle">Someone with the keys needs to let you in. Hang tight — this page will update on its own.</p>
+      `;
+    }
+
+    function showBlocked() {
+      cardEl.className = "card blocked";
+      cardEl.innerHTML = `
+        <div class="big-emoji">🚫</div>
+        <h1>You've been removed</h1>
+        <p class="subtitle">If this was a mistake, you can ask to join again.</p>
+        <button class="primary" id="retry-btn">Try again</button>
+      `;
+      document.getElementById("retry-btn").addEventListener("click", () => {
+        localStorage.removeItem("myMemberId");
+        showForm();
+      });
+    }
+
+    async function onSubmit(e) {
+      e.preventDefault();
+      const name = document.getElementById("name").value.trim();
+      const phone = document.getElementById("phone").value.trim();
+      const errorEl = document.getElementById("error");
+      if (!name || !phone) return;
+
+      const id = normalizePhone(phone);
+      if (id.length < 7) {
+        errorEl.textContent = "That phone number looks too short.";
+        return;
+      }
+
+      const memberRef = doc(db, "members", id);
+      const existing = await getDoc(memberRef);
+
+      if (!existing.exists()) {
+        const isHost = id === normalizePhone(HOST_PHONE);
+        await setDoc(memberRef, {
+          name,
+          phone,
+          status: isHost ? "approved" : "pending",
+          isHost,
+          createdAt: serverTimestamp()
+        });
+      }
+
+      localStorage.setItem("myMemberId", id);
+      watchMember(id);
+    }
+
+    function watchMember(id) {
+      onSnapshot(doc(db, "members", id), (snap) => {
+        if (!snap.exists()) {
+          localStorage.removeItem("myMemberId");
+          showForm();
+          return;
+        }
+        const data = snap.data();
+        if (data.status === "approved") {
+          window.location.href = "index.html";
+        } else if (data.status === "kicked") {
+          showBlocked();
+        } else {
+          showWaiting();
+        }
+      });
+    }
+
+    // ---- boot ----
+    if (!localStorage.getItem("famPasscodeOK")) {
+      window.location.href = "passcode.html";
+    } else {
+      ensureAnonAuth().then(() => {
+        const savedId = localStorage.getItem("myMemberId");
+        if (savedId) {
+          watchMember(savedId);
+        } else {
+          showForm();
+        }
+      });
+    }
+  </script>
+</body>
+</html>

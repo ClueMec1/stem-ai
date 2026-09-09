@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chat — Family Board</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#FF6F91" />
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap');
+
+  :root {
+    --cream: #FFF9EC;
+    --pink: #FF6F91;
+    --pink-dark: #E8496C;
+    --plum: #3A2E4D;
+    --line: #F0DFC4;
+    --font-display: 'Fredoka', sans-serif;
+    --font-body: 'Nunito', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--cream); color: var(--plum); font-family: var(--font-body); line-height: 1.5; min-height: 100vh; }
+  .topbar { background: var(--plum); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; }
+  .topbar .home-link { color: #fff; text-decoration: none; font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; }
+  .who { font-size: 0.85rem; display: flex; align-items: center; gap: 14px; }
+  .who span { color: var(--pink); font-weight: 600; }
+  .who button { background: var(--pink); border: none; color: #fff; border-radius: 10px; padding: 6px 12px; font-family: var(--font-body); font-weight: 700; font-size: 0.8rem; cursor: pointer; }
+  main { max-width: 720px; margin: 0 auto; padding: 36px 24px; }
+  h1 { font-family: var(--font-display); font-weight: 600; margin: 0 0 16px 0; font-size: 1.8rem; }
+  .chat-log { display: flex; flex-direction: column; gap: 14px; margin-bottom: 24px; max-height: 55vh; overflow-y: auto; padding: 4px; }
+  .chat-msg {
+    background: #fff; border: 3px solid var(--plum); border-radius: 18px; padding: 12px 16px;
+    max-width: 85%; box-shadow: 4px 4px 0 var(--line); position: relative;
+  }
+  .chat-msg .who-label { font-family: var(--font-display); font-size: 0.75rem; color: var(--pink-dark); margin-bottom: 2px; }
+  .chat-msg .phone-label { font-size: 0.7rem; color: #9a8fa8; font-weight: 400; }
+  .chat-msg.mine { align-self: flex-end; box-shadow: 4px 4px 0 var(--pink); }
+  .chat-msg .delete-msg {
+    position: absolute; top: 6px; right: 10px; background: none; border: none;
+    color: #b3a8bf; cursor: pointer; font-size: 0.75rem; font-weight: 700;
+  }
+  .chat-form { display: flex; gap: 8px; }
+  input {
+    font-family: var(--font-body); font-size: 1rem; padding: 12px 14px;
+    border: 2px solid var(--line); border-radius: 14px; background: #fff; width: 100%;
+  }
+  input:focus { outline: none; border-color: var(--pink); }
+  button.primary {
+    background: var(--pink); color: #fff; border: 3px solid var(--plum); border-radius: 14px;
+    padding: 10px 22px; font-family: var(--font-display); font-size: 1rem; font-weight: 600; cursor: pointer;
+    box-shadow: 3px 3px 0 var(--plum); white-space: nowrap;
+  }
+  button.primary:hover { background: var(--pink-dark); }
+  button.primary:active { transform: translate(3px, 3px); box-shadow: none; }
+  .empty-state { color: #9a8fa8; font-style: italic; padding: 24px 0; }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="home-link" href="index.html">← Family Board</a>
+    <div class="who">
+      <span id="user-name">…</span>
+      <button id="switch-user-btn">Switch user</button>
+    </div>
+  </header>
+
+  <main>
+    <h1>💬 Chat</h1>
+    <div class="chat-log" id="chat-log">
+      <p class="empty-state">Loading messages…</p>
+    </div>
+    <form class="chat-form" id="chat-form">
+      <input type="text" id="chat-input" placeholder="Say something…" autocomplete="off" required />
+      <button type="submit" class="primary">Send 🚀</button>
+    </form>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+    import {
+      getFirestore, doc, onSnapshot, collection, addDoc, query, orderBy, serverTimestamp, deleteDoc
+    } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDei0N8qUbKVskUXkKcskxcXMaCjdewEXc",
+      authDomain: "fam-pwa.firebaseapp.com",
+      projectId: "fam-pwa",
+      storageBucket: "fam-pwa.firebasestorage.app",
+      messagingSenderId: "162318566018",
+      appId: "1:162318566018:web:ad5c85d950745c2022aa9b",
+      measurementId: "G-479LTFL24S"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let member = null;
+
+    function ensureAnonAuth() {
+      return new Promise((resolve) => {
+        const unsub = onAuthStateChanged(auth, (user) => {
+          if (user) { unsub(); resolve(user); }
+          else { signInAnonymously(auth); }
+        });
+      });
+    }
+
+    document.getElementById("switch-user-btn").addEventListener("click", () => {
+      localStorage.removeItem("myMemberId");
+      window.location.href = "passcode.html";
+    });
+
+    let chatStarted = false;
+    async function boot() {
+      const myId = localStorage.getItem("myMemberId");
+      if (!myId) { window.location.href = "passcode.html"; return; }
+      await ensureAnonAuth();
+
+      onSnapshot(doc(db, "members", myId), (snap) => {
+        if (!snap.exists() || snap.data().status !== "approved") {
+          window.location.href = "join.html";
+          return;
+        }
+        member = { id: myId, ...snap.data() };
+        document.getElementById("user-name").textContent = member.name + (member.isHost ? " 👑" : "");
+        if (!chatStarted) { chatStarted = true; startChat(); }
+      });
+    }
+
+    function startChat() {
+      const logEl = document.getElementById("chat-log");
+      const msgsRef = collection(db, "chat_messages");
+      const q = query(msgsRef, orderBy("createdAt", "asc"));
+
+      onSnapshot(q, (snapshot) => {
+        if (snapshot.empty) {
+          logEl.innerHTML = '<p class="empty-state">No messages yet — say hi 👋</p>';
+          return;
+        }
+        logEl.innerHTML = "";
+        snapshot.forEach((docSnap) => {
+          const m = docSnap.data();
+          const isMine = m.authorId === member.id;
+          const canDelete = isMine || member.isHost;
+          const div = document.createElement("div");
+          div.className = "chat-msg" + (isMine ? " mine" : "");
+          div.innerHTML = `
+            ${canDelete ? `<button class="delete-msg" data-id="${docSnap.id}">✕</button>` : ""}
+            <div class="who-label">${escapeHtml(m.authorName || "someone")} <span class="phone-label">${escapeHtml(m.authorPhone || "")}</span></div>
+            ${escapeHtml(m.text || "")}
+          `;
+          logEl.appendChild(div);
+        });
+        logEl.querySelectorAll(".delete-msg").forEach((btn) => {
+          btn.addEventListener("click", () => deleteDoc(doc(db, "chat_messages", btn.dataset.id)));
+        });
+        logEl.scrollTop = logEl.scrollHeight;
+      });
+
+      document.getElementById("chat-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const input = document.getElementById("chat-input");
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = "";
+        await addDoc(msgsRef, {
+          text,
+          authorId: member.id,
+          authorName: member.name,
+          authorPhone: member.phone,
+          createdAt: serverTimestamp()
+        });
+      });
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    boot();
+  </script>
+</body>
+</html>

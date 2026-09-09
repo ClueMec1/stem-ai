@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Host Controls — Family Board</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#6BCB77" />
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap');
+
+  :root {
+    --cream: #FFF9EC;
+    --green: #6BCB77;
+    --green-dark: #4EAE5B;
+    --pink: #FF6F91;
+    --plum: #3A2E4D;
+    --line: #F0DFC4;
+    --font-display: 'Fredoka', sans-serif;
+    --font-body: 'Nunito', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--cream); color: var(--plum); font-family: var(--font-body); line-height: 1.5; min-height: 100vh; }
+  .topbar { background: var(--plum); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; }
+  .topbar .home-link { color: #fff; text-decoration: none; font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; }
+  .who { font-size: 0.85rem; display: flex; align-items: center; gap: 14px; }
+  .who span { color: var(--green); font-weight: 600; }
+  .who button { background: var(--green); border: none; color: var(--plum); border-radius: 10px; padding: 6px 12px; font-family: var(--font-body); font-weight: 700; font-size: 0.8rem; cursor: pointer; }
+  main { max-width: 720px; margin: 0 auto; padding: 36px 24px; }
+  h1 { font-family: var(--font-display); font-weight: 600; margin: 0 0 4px 0; font-size: 1.8rem; }
+  h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.2rem; margin: 32px 0 12px 0; }
+  .person-list { display: flex; flex-direction: column; gap: 12px; }
+  .person-card {
+    background: #fff; border: 3px solid var(--plum); border-radius: 16px; padding: 14px 16px;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    box-shadow: 4px 4px 0 var(--green);
+  }
+  .person-card.pending { box-shadow: 4px 4px 0 var(--pink); }
+  .person-card .info strong { font-family: var(--font-display); }
+  .person-card .info div { font-size: 0.85rem; color: #71647f; }
+  .person-card .actions { display: flex; gap: 8px; }
+  button.approve, button.reject, button.remove {
+    border: none; border-radius: 10px; padding: 8px 14px; font-family: var(--font-body);
+    font-weight: 700; font-size: 0.85rem; cursor: pointer;
+  }
+  button.approve { background: var(--green); color: var(--plum); }
+  button.reject, button.remove { background: #F0DFC4; color: var(--plum); }
+  .empty-state { color: #9a8fa8; font-style: italic; padding: 12px 0; }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="home-link" href="index.html">← Family Board</a>
+    <div class="who">
+      <span id="user-name">…</span>
+      <button id="switch-user-btn">Switch user</button>
+    </div>
+  </header>
+
+  <main>
+    <h1>👑 Host Controls</h1>
+
+    <h2>Waiting to join</h2>
+    <div class="person-list" id="pending-list">
+      <p class="empty-state">Loading…</p>
+    </div>
+
+    <h2>Family members</h2>
+    <div class="person-list" id="member-list">
+      <p class="empty-state">Loading…</p>
+    </div>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+    import {
+      getFirestore, collection, doc, query, where, onSnapshot, updateDoc, deleteDoc
+    } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDei0N8qUbKVskUXkKcskxcXMaCjdewEXc",
+      authDomain: "fam-pwa.firebaseapp.com",
+      projectId: "fam-pwa",
+      storageBucket: "fam-pwa.firebasestorage.app",
+      messagingSenderId: "162318566018",
+      appId: "1:162318566018:web:ad5c85d950745c2022aa9b",
+      measurementId: "G-479LTFL24S"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let myId = null;
+
+    function ensureAnonAuth() {
+      return new Promise((resolve) => {
+        const unsub = onAuthStateChanged(auth, (user) => {
+          if (user) { unsub(); resolve(user); }
+          else { signInAnonymously(auth); }
+        });
+      });
+    }
+
+    async function boot() {
+      myId = localStorage.getItem("myMemberId");
+      if (!myId) { window.location.href = "passcode.html"; return; }
+      await ensureAnonAuth();
+
+      onSnapshot(doc(db, "members", myId), (snap) => {
+        if (!snap.exists() || snap.data().status !== "approved") {
+          window.location.href = "join.html";
+          return;
+        }
+        if (!snap.data().isHost) {
+          window.location.href = "index.html";
+          return;
+        }
+        document.getElementById("user-name").textContent = snap.data().name + " 👑";
+        startLists();
+      });
+    }
+
+    document.getElementById("switch-user-btn").addEventListener("click", () => {
+      localStorage.removeItem("myMemberId");
+      window.location.href = "passcode.html";
+    });
+
+    let listsStarted = false;
+    function startLists() {
+      if (listsStarted) return;
+      listsStarted = true;
+
+      const membersRef = collection(db, "members");
+
+      onSnapshot(query(membersRef, where("status", "==", "pending")), (snapshot) => {
+        const listEl = document.getElementById("pending-list");
+        if (snapshot.empty) {
+          listEl.innerHTML = '<p class="empty-state">Nobody waiting right now.</p>';
+          return;
+        }
+        listEl.innerHTML = "";
+        snapshot.forEach((docSnap) => {
+          const m = docSnap.data();
+          const card = document.createElement("div");
+          card.className = "person-card pending";
+          card.innerHTML = `
+            <div class="info"><strong>${escapeHtml(m.name)}</strong><div>${escapeHtml(m.phone)}</div></div>
+            <div class="actions">
+              <button class="approve" data-id="${docSnap.id}">Let them in ✅</button>
+              <button class="reject" data-id="${docSnap.id}">Reject</button>
+            </div>
+          `;
+          listEl.appendChild(card);
+        });
+        listEl.querySelectorAll(".approve").forEach((btn) => {
+          btn.addEventListener("click", () => updateDoc(doc(db, "members", btn.dataset.id), { status: "approved" }));
+        });
+        listEl.querySelectorAll(".reject").forEach((btn) => {
+          btn.addEventListener("click", () => deleteDoc(doc(db, "members", btn.dataset.id)));
+        });
+      });
+
+      onSnapshot(query(membersRef, where("status", "==", "approved")), (snapshot) => {
+        const listEl = document.getElementById("member-list");
+        if (snapshot.empty) {
+          listEl.innerHTML = '<p class="empty-state">No members yet.</p>';
+          return;
+        }
+        listEl.innerHTML = "";
+        snapshot.forEach((docSnap) => {
+          if (docSnap.id === myId) return; // don't show a "remove yourself" button
+          const m = docSnap.data();
+          const card = document.createElement("div");
+          card.className = "person-card";
+          card.innerHTML = `
+            <div class="info"><strong>${escapeHtml(m.name)}${m.isHost ? " 👑" : ""}</strong><div>${escapeHtml(m.phone)}</div></div>
+            <div class="actions">
+              <button class="remove" data-id="${docSnap.id}">Remove</button>
+            </div>
+          `;
+          listEl.appendChild(card);
+        });
+        listEl.querySelectorAll(".remove").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            if (confirm("Remove this person from the family board?")) {
+              updateDoc(doc(db, "members", btn.dataset.id), { status: "kicked" });
+            }
+          });
+        });
+      });
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    boot();
+  </script>
+</body>
+</html>

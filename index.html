@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Family Board</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#FF6F91" />
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap');
+
+  :root {
+    --cream: #FFF9EC;
+    --pink: #FF6F91;
+    --turquoise: #3EC1D3;
+    --yellow: #FFC93C;
+    --green: #6BCB77;
+    --plum: #3A2E4D;
+    --line: #F0DFC4;
+    --font-display: 'Fredoka', sans-serif;
+    --font-body: 'Nunito', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--cream);
+    background-image: radial-gradient(var(--yellow) 2px, transparent 2px);
+    background-size: 28px 28px;
+    background-position: -6px -6px;
+    color: var(--plum);
+    font-family: var(--font-body);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  .topbar {
+    background: var(--plum); color: #fff; display: flex; align-items: center;
+    justify-content: space-between; padding: 18px 24px;
+  }
+  .topbar .home-link { color: #fff; text-decoration: none; font-family: var(--font-display); font-size: 1.3rem; font-weight: 600; }
+  .who { font-size: 0.85rem; display: flex; align-items: center; gap: 14px; }
+  .who span { color: var(--yellow); font-weight: 600; }
+  .who button {
+    background: var(--pink); border: none; color: #fff; border-radius: 10px;
+    padding: 6px 12px; font-family: var(--font-body); font-weight: 700; font-size: 0.8rem; cursor: pointer;
+  }
+  .board {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 24px; padding: 44px 24px; max-width: 900px; margin: 0 auto;
+  }
+  .board-card {
+    background: #fff; border: 3px solid var(--plum); border-radius: 22px; padding: 26px;
+    text-decoration: none; color: var(--plum); display: block; transition: transform 0.12s ease;
+  }
+  .board-card:hover { transform: translateY(-4px) rotate(-1deg); }
+  .board-card .icon { font-size: 2rem; display: block; margin-bottom: 8px; }
+  .board-card h3 { font-family: var(--font-display); font-weight: 600; margin: 0 0 4px 0; }
+  .board-card p { margin: 0; font-size: 0.9rem; color: #71647f; }
+  .board-card.chat { box-shadow: 6px 6px 0 var(--pink); }
+  .board-card.calendar { box-shadow: 6px 6px 0 var(--turquoise); }
+  .board-card.links { box-shadow: 6px 6px 0 var(--yellow); }
+  .board-card.host { box-shadow: 6px 6px 0 var(--green); }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="home-link" href="index.html">🏡 Family Board</a>
+    <div class="who">
+      <span id="user-name">…</span>
+      <button id="switch-user-btn">Switch user</button>
+    </div>
+  </header>
+
+  <div class="board" id="board">
+    <a class="board-card chat" href="chat.html">
+      <span class="icon">💬</span>
+      <h3>Chat</h3>
+      <p>The family group chat.</p>
+    </a>
+    <a class="board-card calendar" href="calendar.html">
+      <span class="icon">📅</span>
+      <h3>Calendar</h3>
+      <p>Shared events and dates.</p>
+    </a>
+    <a class="board-card links" href="links.html">
+      <span class="icon">🎵</span>
+      <h3>Media &amp; Links</h3>
+      <p>Videos, music, and pages — right in the app.</p>
+    </a>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+    import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDei0N8qUbKVskUXkKcskxcXMaCjdewEXc",
+      authDomain: "fam-pwa.firebaseapp.com",
+      projectId: "fam-pwa",
+      storageBucket: "fam-pwa.firebasestorage.app",
+      messagingSenderId: "162318566018",
+      appId: "1:162318566018:web:ad5c85d950745c2022aa9b",
+      measurementId: "G-479LTFL24S"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    function ensureAnonAuth() {
+      return new Promise((resolve) => {
+        const unsub = onAuthStateChanged(auth, (user) => {
+          if (user) { unsub(); resolve(user); }
+          else { signInAnonymously(auth); }
+        });
+      });
+    }
+
+    document.getElementById("switch-user-btn").addEventListener("click", () => {
+      localStorage.removeItem("myMemberId");
+      window.location.href = "passcode.html";
+    });
+
+    async function boot() {
+      const myId = localStorage.getItem("myMemberId");
+      if (!myId) { window.location.href = "passcode.html"; return; }
+      await ensureAnonAuth();
+
+      onSnapshot(doc(db, "members", myId), (snap) => {
+        if (!snap.exists() || snap.data().status !== "approved") {
+          window.location.href = "join.html";
+          return;
+        }
+        const member = snap.data();
+        document.getElementById("user-name").textContent = member.name + (member.isHost ? " 👑" : "");
+
+        if (member.isHost && !document.getElementById("host-card")) {
+          const card = document.createElement("a");
+          card.id = "host-card";
+          card.className = "board-card host";
+          card.href = "host.html";
+          card.innerHTML = `<span class="icon">👑</span><h3>Host Controls</h3><p>Approve joins, manage members.</p>`;
+          document.getElementById("board").appendChild(card);
+        }
+      });
+    }
+
+    boot();
+  </script>
+</body>
+</html>

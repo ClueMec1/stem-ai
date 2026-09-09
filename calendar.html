@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Calendar — Family Board</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#3EC1D3" />
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap');
+
+  :root {
+    --cream: #FFF9EC;
+    --turquoise: #3EC1D3;
+    --turquoise-dark: #2A9CAC;
+    --plum: #3A2E4D;
+    --line: #F0DFC4;
+    --font-display: 'Fredoka', sans-serif;
+    --font-body: 'Nunito', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--cream); color: var(--plum); font-family: var(--font-body); line-height: 1.5; min-height: 100vh; }
+  .topbar { background: var(--plum); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; }
+  .topbar .home-link { color: #fff; text-decoration: none; font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; }
+  .who { font-size: 0.85rem; display: flex; align-items: center; gap: 14px; }
+  .who span { color: var(--turquoise); font-weight: 600; }
+  .who button { background: var(--turquoise); border: none; color: #fff; border-radius: 10px; padding: 6px 12px; font-family: var(--font-body); font-weight: 700; font-size: 0.8rem; cursor: pointer; }
+  main { max-width: 720px; margin: 0 auto; padding: 36px 24px; }
+  h1 { font-family: var(--font-display); font-weight: 600; margin: 0 0 16px 0; font-size: 1.8rem; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-family: var(--font-display); font-size: 0.9rem; color: var(--plum); margin-bottom: 4px; }
+  input {
+    font-family: var(--font-body); font-size: 1rem; padding: 12px 14px;
+    border: 2px solid var(--line); border-radius: 14px; background: #fff; width: 100%;
+  }
+  input:focus { outline: none; border-color: var(--turquoise); }
+  button.primary {
+    background: var(--turquoise); color: #fff; border: 3px solid var(--plum); border-radius: 14px;
+    padding: 10px 22px; font-family: var(--font-display); font-size: 1rem; font-weight: 600; cursor: pointer;
+    box-shadow: 3px 3px 0 var(--plum);
+  }
+  button.primary:hover { background: var(--turquoise-dark); }
+  button.primary:active { transform: translate(3px, 3px); box-shadow: none; }
+  .event-list { display: flex; flex-direction: column; gap: 14px; }
+  .event-card {
+    background: #fff; border: 3px solid var(--plum); border-radius: 18px; padding: 16px 18px;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+    box-shadow: 4px 4px 0 var(--turquoise);
+  }
+  .event-card .date { font-family: var(--font-display); color: var(--turquoise-dark); min-width: 84px; font-weight: 600; }
+  .event-card button.delete { background: none; border: none; color: #b3a8bf; cursor: pointer; font-size: 0.85rem; font-weight: 700; }
+  .empty-state { color: #9a8fa8; font-style: italic; padding: 24px 0; }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="home-link" href="index.html">← Family Board</a>
+    <div class="who">
+      <span id="user-name">…</span>
+      <button id="switch-user-btn">Switch user</button>
+    </div>
+  </header>
+
+  <main>
+    <h1>📅 Calendar</h1>
+
+    <form id="event-form" style="margin-bottom: 32px;">
+      <div class="field">
+        <label for="event-title">What's happening</label>
+        <input type="text" id="event-title" required />
+      </div>
+      <div class="field">
+        <label for="event-date">Date</label>
+        <input type="date" id="event-date" required />
+      </div>
+      <button type="submit" class="primary">Add event 🎉</button>
+    </form>
+
+    <div class="event-list" id="event-list">
+      <p class="empty-state">Loading events…</p>
+    </div>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+    import {
+      getFirestore, doc, onSnapshot, collection, addDoc, query, orderBy, deleteDoc
+    } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDei0N8qUbKVskUXkKcskxcXMaCjdewEXc",
+      authDomain: "fam-pwa.firebaseapp.com",
+      projectId: "fam-pwa",
+      storageBucket: "fam-pwa.firebasestorage.app",
+      messagingSenderId: "162318566018",
+      appId: "1:162318566018:web:ad5c85d950745c2022aa9b",
+      measurementId: "G-479LTFL24S"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let member = null;
+
+    function ensureAnonAuth() {
+      return new Promise((resolve) => {
+        const unsub = onAuthStateChanged(auth, (user) => {
+          if (user) { unsub(); resolve(user); }
+          else { signInAnonymously(auth); }
+        });
+      });
+    }
+
+    document.getElementById("switch-user-btn").addEventListener("click", () => {
+      localStorage.removeItem("myMemberId");
+      window.location.href = "passcode.html";
+    });
+
+    let calendarStarted = false;
+    async function boot() {
+      const myId = localStorage.getItem("myMemberId");
+      if (!myId) { window.location.href = "passcode.html"; return; }
+      await ensureAnonAuth();
+
+      onSnapshot(doc(db, "members", myId), (snap) => {
+        if (!snap.exists() || snap.data().status !== "approved") {
+          window.location.href = "join.html";
+          return;
+        }
+        member = { id: myId, ...snap.data() };
+        document.getElementById("user-name").textContent = member.name + (member.isHost ? " 👑" : "");
+        if (!calendarStarted) { calendarStarted = true; startCalendar(); }
+      });
+    }
+
+    function startCalendar() {
+      const listEl = document.getElementById("event-list");
+      const eventsRef = collection(db, "calendar_events");
+      const q = query(eventsRef, orderBy("date", "asc"));
+
+      onSnapshot(q, (snapshot) => {
+        if (snapshot.empty) {
+          listEl.innerHTML = '<p class="empty-state">No events yet.</p>';
+          return;
+        }
+        listEl.innerHTML = "";
+        snapshot.forEach((docSnap) => {
+          const ev = docSnap.data();
+          const canDelete = ev.addedById === member.id || member.isHost;
+          const card = document.createElement("div");
+          card.className = "event-card";
+          card.innerHTML = `
+            <div class="date">${formatDate(ev.date)}</div>
+            <div style="flex:1;">${escapeHtml(ev.title)}
+              <div style="font-size:0.75rem; color:#9a8fa8;">added by ${escapeHtml(ev.addedByName || "someone")}</div>
+            </div>
+            ${canDelete ? `<button class="delete" data-id="${docSnap.id}">Remove</button>` : ""}
+          `;
+          listEl.appendChild(card);
+        });
+        listEl.querySelectorAll(".delete").forEach((btn) => {
+          btn.addEventListener("click", () => deleteDoc(doc(db, "calendar_events", btn.dataset.id)));
+        });
+      });
+
+      document.getElementById("event-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const title = document.getElementById("event-title").value.trim();
+        const date = document.getElementById("event-date").value;
+        if (!title || !date) return;
+        await addDoc(eventsRef, { title, date, addedById: member.id, addedByName: member.name });
+        e.target.reset();
+      });
+    }
+
+    function formatDate(iso) {
+      const d = new Date(iso + "T00:00:00");
+      return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    }
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    boot();
+  </script>
+</body>
+</html>

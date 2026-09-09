@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Family Board</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#FF6F91" />
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap');
+
+  :root {
+    --cream: #FFF9EC;
+    --pink: #FF6F91;
+    --pink-dark: #E8496C;
+    --yellow: #FFC93C;
+    --plum: #3A2E4D;
+    --line: #F0DFC4;
+    --font-display: 'Fredoka', sans-serif;
+    --font-body: 'Nunito', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--cream);
+    background-image: radial-gradient(var(--yellow) 2px, transparent 2px);
+    background-size: 28px 28px;
+    background-position: -6px -6px;
+    color: var(--plum);
+    font-family: var(--font-body);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  main { max-width: 400px; margin: 0 auto; padding: 70px 24px 24px; }
+  .card {
+    background: #fff; border: 3px solid var(--plum); border-radius: 24px;
+    padding: 32px 28px; box-shadow: 6px 6px 0 var(--pink);
+  }
+  h1 { font-family: var(--font-display); font-weight: 600; font-size: 1.8rem; margin: 0 0 4px 0; }
+  .subtitle { color: #71647f; margin: 0 0 20px 0; }
+  #question { font-family: var(--font-display); font-weight: 600; margin-bottom: 8px; }
+  .field { margin-bottom: 16px; }
+  input {
+    font-family: var(--font-body); font-size: 1rem; padding: 12px 14px;
+    border: 2px solid var(--line); border-radius: 14px; background: var(--cream); width: 100%;
+  }
+  input:focus { outline: none; border-color: var(--pink); }
+  button.primary {
+    background: var(--pink); color: #fff; border: 3px solid var(--plum); border-radius: 14px;
+    padding: 12px 20px; font-family: var(--font-display); font-size: 1.05rem; font-weight: 600;
+    cursor: pointer; width: 100%; box-shadow: 3px 3px 0 var(--plum); transition: transform 0.08s ease;
+  }
+  button.primary:hover { background: var(--pink-dark); }
+  button.primary:active { transform: translate(3px, 3px); box-shadow: none; }
+  #error { color: var(--pink-dark); font-size: 0.85rem; margin-top: 12px; min-height: 1.2em; font-weight: 600; }
+</style>
+</head>
+<body>
+  <main>
+    <div class="card">
+      <h1>🏡 Family Board</h1>
+      <p class="subtitle">Answer this to get started.</p>
+
+      <form id="passcode-form">
+        <p id="question"></p>
+        <div class="field">
+          <input type="text" id="answer" required autocomplete="off" inputmode="numeric" />
+        </div>
+        <button type="submit" class="primary">Continue →</button>
+        <p id="error"></p>
+      </form>
+    </div>
+  </main>
+
+  <script>
+    // ---- Edit these two lines to set your family's question/answer ----
+    const FAMILY_QUESTION = "When is Mom's birthday? (MMDD)";
+    const FAMILY_ANSWER = "1027";
+    // ---------------------------------------------------------------------
+
+    document.getElementById("question").textContent = FAMILY_QUESTION;
+
+    // If this device already has a saved member id, skip straight to
+    // join.html — it'll figure out if you're approved, waiting, etc.
+    if (localStorage.getItem("myMemberId")) {
+      window.location.href = "join.html";
+    }
+
+    document.getElementById("passcode-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const answer = document.getElementById("answer").value.trim();
+      const errorEl = document.getElementById("error");
+      if (answer === FAMILY_ANSWER) {
+        localStorage.setItem("famPasscodeOK", "true");
+        window.location.href = "join.html";
+      } else {
+        errorEl.textContent = "Not quite — try again.";
+      }
+    });
+  </script>
+</body>
+</html>
