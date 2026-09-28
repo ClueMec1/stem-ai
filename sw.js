@@ -1,40 +1,23 @@
-// sw.js — deliberately minimal. It caches the app shell (the HTML/CSS/JS
-// files) so the app installs and opens instantly, but live data (chat,
-// calendar, links) always comes fresh from Firestore, not the cache.
-
-const CACHE = "fam-board-shell-v1";
-const SHELL_FILES = [
-  "./index.html",
-  "./passcode.html",
-  "./join.html",
-  "./host.html",
-  "./chat.html",
-  "./calendar.html",
-  "./links.html",
-  "./manifest.json"
-];
-
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(SHELL_FILES))
-  );
-  self.skipWaiting();
+const CACHE = 'c4-gauntlet-v1';
+const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });
-
-self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
-
-self.addEventListener("fetch", (event) => {
-  // Never cache Firestore/Firebase network calls — only app-shell files.
-  if (event.request.url.includes("firestore.googleapis.com")) return;
-
-  event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
-  );
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.hostname.includes('gamesolver.org')) return; // live solver: always network
+  const isFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
+  if (url.origin !== location.origin && !isFont) return;
+  e.respondWith(caches.match(req).then(hit => {
+    const net = fetch(req).then(res => {
+      if (res && (res.ok || res.type === 'opaque')) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
+      return res;
+    }).catch(() => hit || caches.match('./index.html'));
+    return hit || net;
+  }));
 });
