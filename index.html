@@ -2,14 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1E4CD0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#DCE6F8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B1224" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Connect Four">
+<meta name="apple-mobile-web-app-title" content="Connect 4">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
 <title>Connect Four Gauntlet</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -165,6 +167,36 @@ body{background:var(--bg);background-image:radial-gradient(var(--dots) 1.5px,tra
 @media (prefers-reduced-motion: reduce){
   .disc.win,.robot .eye,.robot.thinking .eyes,.robot.bounce,.card,.bubble.pop p{animation:none}
 }
+/* ---- one-screen phone layout ---- */
+html,body{height:100%}
+body{overscroll-behavior:none;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input{-webkit-user-select:text;user-select:text}
+.app{height:100%;display:flex;flex-direction:column;gap:10px;padding-block:10px 12px;overflow-y:auto}
+.app > *{flex:none}
+.board-area{flex:1 1 auto;min-height:180px;container-type:size;display:grid;place-items:end center}
+.stage{width:100%;width:min(100cqw,calc(100cqh * 740 / 770))}
+.bar h1{font-size:clamp(24px,6.5vw,34px)}
+.icon-btn{padding:7px 12px}
+.tabs button{padding:8px 6px;font-size:15px}
+.robot{width:50px;height:48px}
+.robot .head{inset:7px 1px 0;border-radius:13px}
+.robot .eyes{left:11px;right:11px;top:18px}
+.robot .mouth{bottom:8px;width:16px;margin-left:-8px}
+.avatar{width:46px;height:46px;font-size:20px}
+.bubble{font-size:15px;padding:8px 12px;min-height:44px}
+.score{gap:6px}
+.score div{display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 4px}
+.score b{display:inline;font-size:20px}
+.actions3{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px}
+.actions3 .btn,#online-controls .btn{padding:12px 6px;font-size:15px;display:flex;align-items:center;justify-content:center;gap:6px;min-height:48px}
+.actions3 svg{width:18px;height:18px;flex:none}
+.sheet-wrap{align-items:end;place-items:end center;padding:0}
+.sheet{width:100%;max-width:560px;background:var(--surface);border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));
+  display:grid;gap:16px;box-shadow:0 -10px 40px rgba(0,0,0,.3);animation:sheetin .28s cubic-bezier(.2,.9,.3,1)}
+.sheet h2{font-family:var(--display);font-weight:400;font-size:22px;margin:0}
+@keyframes sheetin{from{transform:translateY(100%)}to{transform:none}}
+@media (max-width:380px){.actions3 span{display:none}.bar h1{font-size:22px}}
+@media (prefers-reduced-motion: reduce){.sheet{animation:none}}
 </style>
 
 </head>
@@ -219,20 +251,22 @@ body{background:var(--bg);background-image:radial-gradient(var(--dots) 1.5px,tra
     <div class="bubble" id="bubble" aria-live="polite"><p id="say">Hi! I'm Robo. Tap any column to drop your red disc.</p></div>
   </div>
 
+  <div class="board-area" id="board-area">
   <div class="stage" id="stage">
-    <div class="layer discs" id="discs"></div>
-    <svg class="layer face" viewBox="0 0 740 770" aria-hidden="true">
-      <defs>
-        <linearGradient id="bg-board" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--board-hi)"/><stop offset="1" style="stop-color:var(--board)"/></linearGradient>
-      </defs>
-      <path d="M40 770 L70 740 L120 740 L150 770 Z M590 770 L620 740 L670 740 L700 770 Z" style="fill:var(--board-edge)"/>
-      <rect x="0" y="716" width="740" height="36" rx="18" style="fill:var(--board-edge)"/>
-      <path id="face-path" fill-rule="evenodd" fill="url(#bg-board)"/>
-      <g id="rings" fill="none" style="stroke:var(--hole-ring)" stroke-width="5"></g>
-    </svg>
-    <svg class="layer lines" id="lines" viewBox="0 0 740 770" aria-hidden="true"></svg>
-    <div class="layer hits" id="hits"></div>
-    <div class="result" id="result" hidden></div>
+      <div class="layer discs" id="discs"></div>
+      <svg class="layer face" viewBox="0 0 740 770" aria-hidden="true">
+        <defs>
+          <linearGradient id="bg-board" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--board-hi)"/><stop offset="1" style="stop-color:var(--board)"/></linearGradient>
+        </defs>
+        <path d="M40 770 L70 740 L120 740 L150 770 Z M590 770 L620 740 L670 740 L700 770 Z" style="fill:var(--board-edge)"/>
+        <rect x="0" y="716" width="740" height="36" rx="18" style="fill:var(--board-edge)"/>
+        <path id="face-path" fill-rule="evenodd" fill="url(#bg-board)"/>
+        <g id="rings" fill="none" style="stroke:var(--hole-ring)" stroke-width="5"></g>
+      </svg>
+      <svg class="layer lines" id="lines" viewBox="0 0 740 770" aria-hidden="true"></svg>
+      <div class="layer hits" id="hits"></div>
+      <div class="result" id="result" hidden></div>
+    </div>
   </div>
 
   <div class="score" id="score" aria-label="Score">
@@ -241,11 +275,22 @@ body{background:var(--bg);background-image:radial-gradient(var(--dots) 1.5px,tra
     <div><b id="t-ai">0</b><small><span class="mini yellow"></span>Robo</small></div>
   </div>
 
-  <div class="controls" id="ai-controls">
-    <div class="actions">
-      <button type="button" class="btn primary" id="new-game">New game</button>
-      <button type="button" class="btn" id="undo">Take back</button>
-    </div>
+  <div class="actions3" id="ai-controls">
+    <button type="button" class="btn primary" id="new-game">New game</button>
+    <button type="button" class="btn" id="undo">Take back</button>
+    <button type="button" class="btn" id="open-settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+      <span>Settings</span>
+    </button>
+  </div>
+  <div class="actions" id="online-controls" hidden>
+    <button type="button" class="btn" id="leave-game">Leave game</button>
+    <button type="button" class="btn primary" id="rematch-btn" disabled>Rematch</button>
+  </div>
+</div>
+<div class="modal sheet-wrap" id="settings" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="set-title">
+    <h2 id="set-title">Settings</h2>
     <div class="field">
       <span class="label" id="lbl-first">Who starts?</span>
       <div class="seg" role="group" aria-labelledby="lbl-first">
@@ -263,14 +308,9 @@ body{background:var(--bg);background-image:radial-gradient(var(--dots) 1.5px,tra
       </div>
       <p class="hint" id="str-hint"></p>
     </div>
+    <p class="hint">How to win: get four of your discs in a row, across, up and down, or slanted.</p>
+    <button type="button" class="btn primary" id="close-settings">Done</button>
   </div>
-  <div class="controls" id="online-controls" hidden>
-    <div class="actions">
-      <button type="button" class="btn" id="leave-game">Leave game</button>
-      <button type="button" class="btn primary" id="rematch-btn" disabled>Rematch</button>
-    </div>
-  </div>
-  <p class="help" id="help">Get four of your discs in a row: across, up and down, or slanted.</p>
 </div>
 <div class="modal" id="modal" hidden></div>
 <div class="toast" id="toast" role="status" hidden></div>
@@ -633,8 +673,9 @@ function engineFactory() {
     ghostEl.classList.remove('hide');
   }
 
+  function buzz(p) { try { if (soundOn && navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
   function dropAnim(el, r) {
-    if (reduced || !el.animate) { Snd.clack(1); return Promise.resolve(); }
+    if (reduced || !el.animate) { Snd.clack(1); buzz(18); return Promise.resolve(); }
     const hPx = stage.getBoundingClientRect().height, unit = hPx / 770;
     const startY = -(cy(r) - 50) * unit, cell = 100 * unit, rows = H - r;
     const fall = 170 + rows * 48, total = fall / 0.6;
@@ -646,7 +687,7 @@ function engineFactory() {
       { transform: `translateY(${-cell * .07}px)`, offset: .93, easing: 'ease-in' },
       { transform: 'translateY(0)' }
     ], { duration: total });
-    setTimeout(() => { Snd.clack(1, rows > 3); stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake'); }, total * .6);
+    setTimeout(() => { Snd.clack(1, rows > 3); buzz(18); stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake'); }, total * .6);
     setTimeout(() => Snd.clack(.35, true), total * .86);
     setTimeout(() => Snd.clack(.12, true), total * .99);
     return a.finished.catch(() => {});
@@ -777,8 +818,8 @@ function engineFactory() {
       if (!reduced && ln.animate) ln.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 450, easing: 'ease-out', fill: 'forwards' });
     }
     const opp = online ? OG.oppName : 'Robo';
-    if (result === 'you') { Snd.win(); confetti(); say(online ? 'Four in a row! You won this one.' : 'No way! You beat me! Want a rematch?', 'sad'); }
-    else if (result === 'ai') { Snd.lose(); say(online ? `${opp} got four in a row.` : 'Four in a row! I win this time.', 'happy'); }
+    if (result === 'you') { Snd.win(); buzz([60, 50, 60, 50, 120]); confetti(); say(online ? 'Four in a row! You won this one.' : 'No way! You beat me! Want a rematch?', 'sad'); }
+    else if (result === 'ai') { Snd.lose(); buzz(200); say(online ? `${opp} got four in a row.` : 'Four in a row! I win this time.', 'happy'); }
     else { Snd.draw(); say('The board is full. A tie! That was close.', 'flat'); }
     if (online) Online.setPlaying(false);
     update();
@@ -917,7 +958,7 @@ function engineFactory() {
   function setView(v) {
     const game = v !== 'lobby';
     $('#lobby').hidden = v !== 'lobby';
-    $('#foe').hidden = !game; $('#stage').hidden = !game;
+    $('#foe').hidden = !game; $('#board-area').hidden = !game;
     $('#score').hidden = v !== 'ai'; $('#ai-controls').hidden = v !== 'ai';
     $('#online-controls').hidden = v !== 'game';
     $('#robot').hidden = v !== 'ai'; $('#opp-avatar').hidden = v !== 'game';
@@ -1115,7 +1156,7 @@ function engineFactory() {
       if (!inv) return;
       seenInvites.add(inv.id);
       incoming = inv;
-      Snd.tone(988, .15, 'sine', .15); Snd.tone(1319, .3, 'sine', .15, .15);
+      Snd.tone(988, .15, 'sine', .15); Snd.tone(1319, .3, 'sine', .15, .15); buzz([100, 80, 100]);
       const m = $('#modal'); m.textContent = '';
       const card = document.createElement('div'); card.className = 'card'; card.setAttribute('role', 'dialog');
       const av = document.createElement('div'); av.className = 'avatar'; av.textContent = (inv.fromName || '?').trim().charAt(0).toUpperCase();
@@ -1308,6 +1349,11 @@ function engineFactory() {
     }
     update();
   }));
+  const sheet = $('#settings');
+  $('#open-settings').addEventListener('click', () => { Snd.init(); Snd.tap(); sheet.hidden = false; $('#close-settings').focus({ preventScroll: true }); });
+  $('#close-settings').addEventListener('click', () => { sheet.hidden = true; Snd.tap(); });
+  sheet.addEventListener('click', e => { if (e.target === sheet) sheet.hidden = true; });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') sheet.hidden = true; });
   $('#new-game').addEventListener('click', () => { Snd.init(); newGame(); });
   $('#undo').addEventListener('click', undo);
   $('#sound').addEventListener('click', () => { Snd.init(); soundOn = !soundOn; save(); update(); Snd.tap(); });
