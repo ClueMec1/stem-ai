@@ -2502,7 +2502,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     else if (/unauthorized-domain|referer/i.test(c)) t = 'This website is not allowed yet. Add it in Firebase under Authentication > Settings > Authorized domains.';
     else if (/api-key/i.test(c)) t = 'Firebase says the API key is not valid. Check apiKey in index.html.';
     else if (/database url|firebaseio|firebasedatabase|different region|Cannot parse/i.test(c)) t = 'The Realtime Database address is wrong. Copy the URL from Realtime Database > Data into databaseURL in index.html.';
-    else if (/permission/i.test(c)) t = 'Firebase blocked the request. Check that both sets of rules are published.';
+    else if (/permission/i.test(c)) t = 'Firebase blocked this. Rooms, chat, watching and blitz need the new rules from the zip published in Firebase.';
     else if (/timeout/.test(c)) t = 'The server did not answer. Make sure the Realtime Database exists and its URL in index.html is right.';
     else if (/network/i.test(c)) t = 'Could not reach the server. Check your internet and try again.';
     const detail = c.trim().slice(0, 160);
@@ -2512,13 +2512,34 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
 
   // ---------- presence ----------
   function myState() { return OG && !OG.spectator && OG.live ? 'match' : idle ? 'idle' : 'lobby'; }
+  // legacyRules = the Realtime Database still has the first version's rules
+  // (fields: name, online, playing, lastSeen). The app then writes that shape.
+  let legacyRules = false;
+  const inLiveMatch = () => !!(OG && !OG.spectator && OG.live);
   function presence(online) {
-    return { name: myName, online, state: myState(), gameId: OG && !OG.spectator && OG.live ? OG.id : null, lastSeen: firebase.database.ServerValue.TIMESTAMP };
+    if (legacyRules) return { name: myName, online, playing: inLiveMatch(), lastSeen: firebase.database.ServerValue.TIMESTAMP };
+    return { name: myName, online, state: myState(), gameId: inLiveMatch() ? OG.id : null, lastSeen: firebase.database.ServerValue.TIMESTAMP };
   }
-  function pushPresence() { if (statusRef && started) statusRef.update({ state: myState(), gameId: OG && !OG.spectator && OG.live ? OG.id : null }).catch(() => {}); renderMe(); }
+  function offlinePatch() {
+    return legacyRules ? { online: false, playing: false, lastSeen: firebase.database.ServerValue.TIMESTAMP }
+      : { online: false, state: 'lobby', gameId: null, lastSeen: firebase.database.ServerValue.TIMESTAMP };
+  }
+  function pushPresence() {
+    if (statusRef && started) statusRef.update(legacyRules ? { playing: inLiveMatch() } : { state: myState(), gameId: inLiveMatch() ? OG.id : null }).catch(() => {});
+    renderMe();
+  }
+  const denied = e => /permission/i.test(String((e && (e.code || '')) + ' ' + ((e && e.message) || '')));
+  async function writePresence() {
+    try { await statusRef.set(presence(true)); }
+    catch (e) {
+      if (!denied(e) || legacyRules) throw e;
+      legacyRules = true;               // retry in the older format
+      await statusRef.set(presence(true));
+    }
+  }
   function onConn(snap) {
     if (snap.val() !== true || !statusRef || wentOffline) return;
-    statusRef.onDisconnect().update({ online: false, state: 'lobby', gameId: null, lastSeen: firebase.database.ServerValue.TIMESTAMP })
+    statusRef.onDisconnect().update(offlinePatch())
       .then(() => statusRef.set(presence(true))).catch(() => {});
   }
   function bumpIdle() {
@@ -2607,7 +2628,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
       step = 'realtime database';
       wentOffline = false; rdb.goOnline();
       statusRef = rdb.ref('status/' + me);
-      await withTimeout(statusRef.set(presence(true)), 12000);
+      await withTimeout(writePresence(), 12000);
       rdb.ref('.info/connected').on('value', onConn);
       step = 'firestore';
       listenPeople(); listenInvites();
@@ -2621,7 +2642,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     if (room) await closeRoom();
     try { rdb.ref('.info/connected').off('value', onConn); } catch (e) {}
     if (peopleQ) peopleQ.off(); if (invitesUnsub) invitesUnsub();
-    try { await statusRef.update({ online: false, state: 'lobby', gameId: null, lastSeen: firebase.database.ServerValue.TIMESTAMP }); } catch (e) {}
+    try { await statusRef.update(offlinePatch()); } catch (e) {}
     try { rdb.goOffline(); } catch (e) {}
     started = false; people = {};
     showSignin(); msg('You are offline. Nobody can see you.');
@@ -2637,7 +2658,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
       snap.forEach(ch => {
         if (ch.key === me) return;
         const v = ch.val() || {};
-        people[ch.key] = { name: String(v.name || 'Player').slice(0, 20), state: ['lobby', 'match', 'idle'].includes(v.state) ? v.state : 'lobby', gameId: typeof v.gameId === 'string' ? v.gameId : null };
+        people[ch.key] = { name: String(v.name || 'Player').slice(0, 20), state: ['lobby', 'match', 'idle'].includes(v.state) ? v.state : v.playing ? 'match' : 'lobby', gameId: typeof v.gameId === 'string' ? v.gameId : null };
       });
       renderPeople(); checkOpp();
     }, e => C4.toast(explain(e)));
@@ -2649,7 +2670,13 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     const toName = (people[uid] && people[uid].name) || (OG && OG.opp === uid ? OG.oppName : 'Player');
     const blitz = C4.prefs.oblitz || 0;
     try {
-      const ref = await fs.collection('invites').add({ from: me, fromName: myName, to: uid, toName, blitz, status: 'pending', createdAt: ts() });
+      let ref;
+      try { ref = await fs.collection('invites').add({ from: me, fromName: myName, to: uid, toName, blitz, status: 'pending', createdAt: ts() }); }
+      catch (e) {
+        if (!denied(e)) throw e;
+        ref = await fs.collection('invites').add({ from: me, fromName: myName, to: uid, toName, status: 'pending', createdAt: ts() });
+        if (blitz) C4.toast('Blitz needs the new Firestore rules. Sent as a normal match.');
+      }
       sent = { id: ref.id, to: uid, toName, ref };
       C4.Snd.tap(); C4.toast(`Challenge sent to ${toName}.`);
       sent.unsub = ref.onSnapshot(s => {
@@ -2812,7 +2839,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     }, () => {});
     // watchers
     game.watchQ = rdb.ref('watching/' + id);
-    game.watchQ.on('value', s => { if (OG === game) C4.onWatchers(s.numChildren()); });
+    game.watchQ.on('value', s => { if (OG === game) C4.onWatchers(s.numChildren()); }, () => {});
     if (spectator) {
       game.watchRef = rdb.ref('watching/' + id + '/' + me);
       game.watchRef.onDisconnect().remove().catch(() => {});
@@ -2856,7 +2883,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     const game = OG; if (!game) return;
     if (game.spectator && k !== 'e') return;
     try { await game.ref.collection('chat').add({ uid: me, name: myName, k, i, at: ts() }); }
-    catch (e) { C4.toast('Could not send that.'); }
+    catch (e) { C4.toast(denied(e) ? 'Chat needs the new Firestore rules from the zip.' : 'Could not send that.'); }
   }
   async function leave() {
     const game = OG;
