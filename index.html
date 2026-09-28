@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1D4ACB">
+<meta name="theme-color" content="#1E4CD0">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Gauntlet">
+<meta name="apple-mobile-web-app-title" content="Connect Four">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -13,156 +13,267 @@
 <title>Connect Four Gauntlet</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Figtree:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap">
 <style>
 :root{
-  --bg:#E6EBF4; --surface:#FFFFFF; --ink:#121A2D; --muted:#56617F; --line:#D1D8E6;
-  --board:#1D4ACB; --board-hi:#2D5CE2; --board-edge:#12308C; --hole:#E6EBF4; --hole-shadow:rgba(8,22,70,.38);
-  --red:#D8283F; --red-ring:#A81B2F; --red-text:#B51D33;
-  --yellow:#F3B810; --yellow-ring:#C28B00; --yellow-text:#8E6500;
-  --accent:#1D4ACB; --accent-ink:#FFFFFF; --focus:#F3B810; --seg:#E6EBF4;
+  --bg:#DCE6F8; --dots:rgba(29,74,203,.10); --surface:#FFFFFF; --ink:#16203A; --muted:#5B6685; --line:#CBD5EA;
+  --board:#1E4CD0; --board-hi:#3566EC; --board-edge:#122F8E; --hole-ring:rgba(0,0,0,.28);
+  --red:#E8323F; --red-ring:#B0202E; --yellow:#FFC61A; --yellow-ring:#D39A00;
+  --accent:#1E4CD0; --accent-ink:#FFFFFF; --focus:#FFC61A; --seg:#E7EDF9; --bubble:#FFFFFF;
+  --robot:#C9D3E8; --robot-dark:#8E9AB8; --eye:#16203A;
   --display:"Bungee","Arial Black",Impact,sans-serif;
-  --body:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  --gap:clamp(4px,1.3vw,10px); --pad:clamp(8px,2vw,16px);
+  --body:"Fredoka",ui-rounded,"SF Pro Rounded",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     color-scheme:dark;
-    --bg:#0A1020; --surface:#131B2E; --ink:#E4E9F4; --muted:#8E99B6; --line:#243049;
-    --board:#1F4CD4; --board-hi:#2E5EEA; --board-edge:#0E2878; --hole:#0A1020; --hole-shadow:rgba(0,0,0,.7);
-    --red-text:#FF6E80; --yellow-text:#F5C73E; --accent:#3A6BF0; --seg:#0E1628;
+    --bg:#0B1224; --dots:rgba(120,150,255,.07); --surface:#151D33; --ink:#EEF2FB; --muted:#98A3C2; --line:#27324E;
+    --board:#2152DC; --board-hi:#3A6CF2; --board-edge:#0F2A80; --accent:#3E6EF3; --seg:#0F172B; --bubble:#1C2640;
+    --robot:#3A4665; --robot-dark:#27314C; --eye:#7FE3FF;
   }
 }
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --bg:#0A1020; --surface:#131B2E; --ink:#E4E9F4; --muted:#8E99B6; --line:#243049;
-  --board:#1F4CD4; --board-hi:#2E5EEA; --board-edge:#0E2878; --hole:#0A1020; --hole-shadow:rgba(0,0,0,.7);
-  --red-text:#FF6E80; --yellow-text:#F5C73E; --accent:#3A6BF0; --seg:#0E1628;
+  --bg:#0B1224; --dots:rgba(120,150,255,.07); --surface:#151D33; --ink:#EEF2FB; --muted:#98A3C2; --line:#27324E;
+  --board:#2152DC; --board-hi:#3A6CF2; --board-edge:#0F2A80; --accent:#3E6EF3; --seg:#0F172B; --bubble:#1C2640;
+  --robot:#3A4665; --robot-dark:#27314C; --eye:#7FE3FF;
 }
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;padding-inline:16px;}
-.app{max-width:1060px;margin:0 auto;padding-block:22px 40px;display:grid;gap:18px}
-.top h1{font-family:var(--display);font-weight:400;font-size:clamp(28px,5.2vw,46px);line-height:1;margin:0;text-wrap:balance}
-.top h1 span{color:var(--accent)}
-.top p{margin:8px 0 0;color:var(--muted);max-width:62ch}
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;align-items:start}
-@media (max-width:860px){.layout{grid-template-columns:1fr}}
-.stage{width:min(100%,600px);justify-self:center;display:grid;gap:8px}
-.status{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;min-height:30px}
-.dot{width:22px;height:22px;border-radius:50%;flex:none;box-shadow:inset 0 -3px 0 rgba(0,0,0,.2)}
-.dot.red{background:var(--red)} .dot.yellow{background:var(--yellow)}
-.dot.pulse{animation:pulse .9s ease-in-out infinite alternate}
-@keyframes pulse{from{transform:scale(.8);opacity:.6}to{transform:scale(1);opacity:1}}
-.preview,.colnums{display:grid;grid-template-columns:repeat(7,1fr);column-gap:var(--gap);padding-inline:var(--pad)}
-.slot{aspect-ratio:1;border-radius:50%;margin:6%;transition:opacity .12s}
-.slot.red{background:var(--red);opacity:.45} .slot.yellow{background:var(--yellow);opacity:.45}
-.board{position:relative;display:grid;grid-template-columns:repeat(7,1fr);column-gap:var(--gap);padding:var(--pad);border-radius:18px;
-  background:linear-gradient(180deg,var(--board-hi),var(--board));box-shadow:0 8px 0 var(--board-edge),0 20px 34px rgba(10,30,90,.28)}
-.col{appearance:none;border:0;background:transparent;padding:0;margin:0;display:flex;flex-direction:column-reverse;gap:var(--gap);cursor:pointer;border-radius:999px;touch-action:manipulation}
-.col:focus-visible{outline:3px solid var(--focus);outline-offset:4px}
-.col.locked{cursor:default}
-.cell{position:relative;aspect-ratio:1;border-radius:50%;background:var(--hole);box-shadow:inset 0 4px 0 var(--hole-shadow)}
-.disc{position:absolute;inset:5%;border-radius:50%;z-index:2;will-change:transform}
-.disc.red{background:radial-gradient(circle,var(--red) 0 50%,var(--red-ring) 51% 58%,var(--red) 59%);box-shadow:inset 0 -3px 0 rgba(0,0,0,.22)}
-.disc.yellow{background:radial-gradient(circle,var(--yellow) 0 50%,var(--yellow-ring) 51% 58%,var(--yellow) 59%);box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
-.disc.last::after{content:"";position:absolute;inset:38%;border-radius:50%;background:rgba(255,255,255,.55)}
-.board.done .disc:not(.win){opacity:.5}
-.disc.win{animation:glow .8s ease-in-out infinite alternate}
-@keyframes glow{from{box-shadow:0 0 0 2px #fff}to{box-shadow:0 0 0 4px #fff,0 0 22px 6px rgba(255,255,255,.75)}}
-.colnums span{text-align:center;font-family:var(--mono);font-size:12px;color:var(--muted)}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:18px}
+body{background:var(--bg);background-image:radial-gradient(var(--dots) 1.5px,transparent 1.6px);background-size:22px 22px;
+  color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;padding-inline:16px;-webkit-tap-highlight-color:transparent}
+.app{max-width:560px;margin:0 auto;padding-block:16px 36px;display:grid;gap:14px}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.bar h1{font-family:var(--display);font-weight:400;font-size:clamp(26px,7vw,36px);line-height:1;margin:0;letter-spacing:.01em}
+.bar h1 .r{color:var(--red)} .bar h1 .y{color:var(--yellow);-webkit-text-stroke:1px var(--yellow-ring)}
+.icon-btn{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;
+  font:inherit;font-weight:600;font-size:14px;padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.icon-btn svg{width:18px;height:18px}
+
+/* opponent */
+.foe{display:flex;align-items:center;gap:12px}
+.robot{position:relative;width:62px;height:58px;flex:none}
+.robot .head{position:absolute;inset:8px 2px 0;background:var(--robot);border-radius:16px;box-shadow:inset 0 -5px 0 var(--robot-dark)}
+.robot .ant{position:absolute;left:50%;top:0;width:4px;height:10px;margin-left:-2px;background:var(--robot-dark)}
+.robot .ant::after{content:"";position:absolute;left:50%;top:-6px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--yellow)}
+.robot.thinking .ant::after{animation:blinkball .5s steps(2) infinite}
+@keyframes blinkball{50%{background:var(--red)}}
+.robot .eyes{position:absolute;left:14px;right:14px;top:22px;display:flex;justify-content:space-between}
+.robot .eye{width:11px;height:13px;border-radius:6px;background:var(--eye);animation:blink 4s infinite;transition:transform .25s}
+@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+.robot.thinking .eyes{animation:look 1s ease-in-out infinite alternate}
+@keyframes look{from{transform:translateX(-4px)}to{transform:translateX(4px)}}
+.robot .mouth{position:absolute;left:50%;bottom:10px;width:20px;height:8px;margin-left:-10px;border:3px solid var(--eye);border-top:0;border-radius:0 0 12px 12px;transition:all .25s}
+.robot.sad .mouth{border:3px solid var(--eye);border-bottom:0;border-radius:12px 12px 0 0;bottom:8px}
+.robot.flat .mouth,.robot.thinking .mouth{height:0;border-width:3px 0 0;border-radius:2px;bottom:12px}
+.robot.happy .eye{height:7px;border-radius:7px 7px 0 0;margin-top:3px}
+.robot.bounce{animation:rbounce .5s ease}
+@keyframes rbounce{30%{transform:translateY(-6px) rotate(-4deg)}60%{transform:translateY(0) rotate(3deg)}}
+.bubble{position:relative;flex:1;background:var(--bubble);border:1px solid var(--line);border-radius:16px;padding:10px 14px;font-weight:500;min-height:48px;display:flex;align-items:center}
+.bubble::before{content:"";position:absolute;left:-8px;top:50%;margin-top:-8px;width:14px;height:14px;background:var(--bubble);border-left:1px solid var(--line);border-bottom:1px solid var(--line);transform:rotate(45deg)}
+.bubble p{margin:0;position:relative}
+.bubble.pop p{animation:popin .3s ease}
+@keyframes popin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* board */
+.stage{position:relative;width:100%;aspect-ratio:740/770;max-width:100%;touch-action:manipulation;user-select:none}
+.stage.shake{animation:shake .18s ease}
+@keyframes shake{30%{transform:translateY(2px)}60%{transform:translateY(-1px)}}
+.layer{position:absolute;inset:0;width:100%;height:100%}
+.discs{z-index:1;overflow:visible}
+.face{z-index:2;pointer-events:none;filter:drop-shadow(0 10px 14px rgba(10,30,90,.28))}
+.lines{z-index:3;pointer-events:none}
+.hits{z-index:4;display:grid;grid-template-columns:repeat(7,1fr);padding:0 2.7%}
+.hit{appearance:none;border:0;background:transparent;margin:0;padding:0;cursor:pointer;border-radius:14px}
+.hit:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}
+.hit.locked{cursor:default}
+.disc{position:absolute;border-radius:50%;transform-origin:50% 100%;will-change:transform}
+.disc.red{background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.55),transparent 32%),radial-gradient(circle,var(--red) 0 54%,var(--red-ring) 55% 63%,var(--red) 64%)}
+.disc.yellow{background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.7),transparent 32%),radial-gradient(circle,var(--yellow) 0 54%,var(--yellow-ring) 55% 63%,var(--yellow) 64%)}
+.disc.ghost{opacity:.55;transition:left .12s ease,opacity .15s}
+.disc.ghost.hide{opacity:0}
+.disc.win{animation:winpulse .7s ease-in-out infinite alternate}
+@keyframes winpulse{to{transform:scale(1.12);filter:brightness(1.25)}}
+.winline{stroke:#fff;stroke-width:16;stroke-linecap:round;fill:none;opacity:.92;filter:drop-shadow(0 0 8px rgba(255,255,255,.9))}
+
+/* result card */
+.result{position:absolute;inset:0;z-index:6;display:grid;place-items:center;pointer-events:none}
+.card{pointer-events:auto;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:22px 26px;text-align:center;
+  box-shadow:0 18px 50px rgba(0,0,0,.3);display:grid;gap:10px;justify-items:center;max-width:86%;animation:cardin .45s cubic-bezier(.2,1.4,.4,1)}
+@keyframes cardin{from{transform:scale(.5);opacity:0}to{transform:none;opacity:1}}
+.card h2{font-family:var(--display);font-weight:400;font-size:clamp(26px,8vw,38px);line-height:1.05;margin:0}
+.card h2.you{color:var(--red)} .card h2.ai{color:var(--yellow-ring)} .card h2.draw{color:var(--accent)}
+.card p{margin:0;color:var(--muted)}
+.card .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+
+/* controls */
+.controls{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px;display:grid;gap:14px}
 .field{display:grid;gap:6px}
-.label{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700}
-.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;padding:3px;background:var(--seg);border-radius:10px}
-.seg button{appearance:none;border:0;background:transparent;font:inherit;font-weight:600;font-size:14px;color:var(--muted);padding:8px 4px;border-radius:8px;cursor:pointer}
-.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.18)}
-.seg button:focus-visible,.btn:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
-.hint{font-size:13px;color:var(--muted);margin:0}
+.label{font-weight:600;font-size:15px}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;padding:4px;background:var(--seg);border-radius:12px}
+.seg button{appearance:none;border:0;background:transparent;font:inherit;font-weight:600;font-size:15px;color:var(--muted);padding:9px 4px;border-radius:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.seg .mini{width:14px;height:14px;border-radius:50%}
+.mini.red{background:var(--red)} .mini.yellow{background:var(--yellow)}
+.hint{font-size:14px;color:var(--muted);margin:0}
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.btn{appearance:none;font:inherit;font-weight:700;font-size:14px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn{appearance:none;font:inherit;font-weight:600;font-size:16px;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;transition:transform .1s}
+.btn:active{transform:scale(.97)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-.btn:disabled{opacity:.45;cursor:default}
-.readout{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:16px}
-.verdict{font-weight:700;margin:0;text-wrap:pretty}
-.meter{position:relative;height:8px;border-radius:99px;background:var(--seg);overflow:hidden}
-.meter::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--line)}
-.meter i{position:absolute;top:0;bottom:0;border-radius:99px;transition:all .4s ease}
-.meter-l{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
-.detail{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin:0}
-.tally{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-top:1px solid var(--line);padding-top:16px;text-align:center}
-.tally b{display:block;font-family:var(--display);font-weight:400;font-size:26px;line-height:1.1;font-variant-numeric:tabular-nums}
-.tally small{font-size:12px;color:var(--muted)}
-.log{font-family:var(--mono);font-size:13px;margin:0;word-break:break-all;min-height:1.5em}
-.log .r{color:var(--red-text)} .log .y{color:var(--yellow-text)}
-@media (prefers-reduced-motion: reduce){.dot.pulse,.disc.win{animation:none}.disc.win{box-shadow:0 0 0 4px #fff}}
+.btn:disabled{opacity:.4;cursor:default}
+.seg button:focus-visible,.btn:focus-visible,.icon-btn:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.score{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.score div{background:var(--seg);border-radius:12px;padding:8px 4px}
+.score b{display:block;font-family:var(--display);font-weight:400;font-size:26px;line-height:1.1;font-variant-numeric:tabular-nums}
+.score small{font-size:13px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:5px}
+.score b.bump{animation:bump .5s ease}
+@keyframes bump{40%{transform:scale(1.4)}}
+.help{font-size:14px;color:var(--muted);margin:0;text-align:center}
+/* modes, lobby, online */
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.tabs button{appearance:none;border:0;background:transparent;font:inherit;font-weight:600;font-size:16px;color:var(--muted);padding:10px 6px;border-radius:10px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.tabs button:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;display:grid;gap:14px}
+.panel h2{font-family:var(--display);font-weight:400;font-size:22px;margin:0;line-height:1.15}
+.panel p{margin:0}
+.muted{color:var(--muted)}
+.namerow{display:flex;gap:8px;flex-wrap:wrap}
+.namerow input{flex:1 1 180px;min-width:0;font:inherit;font-size:17px;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.namerow input:focus-visible{outline:3px solid var(--focus);outline-offset:1px}
+.me{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.me .grow{flex:1;min-width:0}
+.linkbtn{appearance:none;border:0;background:none;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;padding:4px}
+.people{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.people li{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:14px;background:var(--seg)}
+.people .who{flex:1;min-width:0;display:grid}
+.people .who b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.people .who small{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.live{width:9px;height:9px;border-radius:50%;background:#2FC786;box-shadow:0 0 0 3px rgba(47,199,134,.2)}
+.live.busy{background:#F29A1A;box-shadow:0 0 0 3px rgba(242,154,26,.2)}
+.people .btn{padding:8px 14px;font-size:15px}
+.empty{text-align:center;padding:14px;color:var(--muted);border:2px dashed var(--line);border-radius:14px}
+.avatar{width:52px;height:52px;border-radius:50%;flex:none;display:grid;place-items:center;font-family:var(--display);font-size:22px;color:#4A3600;
+  background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.6),transparent 34%),var(--yellow);box-shadow:inset 0 -4px 0 var(--yellow-ring)}
+.modal{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:16px;background:rgba(8,14,30,.55)}
+.modal .card{max-width:360px;width:100%}
+.modal .card .avatar{width:64px;height:64px;font-size:28px;animation:ring 1s ease-in-out infinite}
+@keyframes ring{0%,100%{transform:rotate(0)}20%{transform:rotate(-10deg)}40%{transform:rotate(10deg)}60%{transform:rotate(-6deg)}}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:45;background:var(--ink);color:var(--bg);
+  padding:10px 18px;border-radius:999px;font-weight:600;max-width:calc(100% - 32px);text-align:center;animation:popin .25s ease}
+@media (prefers-reduced-motion: reduce){.modal .card .avatar{animation:none}}
+#confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50}
+@media (prefers-reduced-motion: reduce){
+  .disc.win,.robot .eye,.robot.thinking .eyes,.robot.bounce,.card,.bubble.pop p{animation:none}
+}
 </style>
 
 </head>
 <body>
+<canvas id="confetti" hidden></canvas>
 <div class="app">
-  <header class="top">
-    <h1>Connect Four <span>Gauntlet</span></h1>
-    <p>You are red. The machine searches millions of positions per move and uses a perfect solver when it can reach one. Getting a draw is already an achievement.</p>
-  </header>
+  <div class="bar">
+    <h1>Connect <span class="r">F</span><span class="y">o</span><span class="r">u</span><span class="y">r</span></h1>
+    <button type="button" class="icon-btn" id="sound" aria-pressed="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path id="wave" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/><path id="mute" d="m16 9 6 6m0-6-6 6" style="display:none"/></svg>
+      <span id="sound-label">Sound on</span>
+    </button>
+  </div>
 
-  <main class="layout">
-    <section class="stage" aria-label="Game board">
-      <div class="status" aria-live="polite"><span class="dot red" id="turn-dot"></span><span id="status">Your move. Pick a column.</span></div>
-      <div class="preview" id="preview" aria-hidden="true"></div>
-      <div class="board" id="board"></div>
-      <div class="colnums" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span></div>
-    </section>
+  <div class="tabs" role="tablist" aria-label="Game mode">
+    <button type="button" role="tab" id="tab-ai" aria-selected="true">Play Robo</button>
+    <button type="button" role="tab" id="tab-online" aria-selected="false">Play friends</button>
+  </div>
 
-    <aside class="panel">
-      <div class="field">
-        <span class="label" id="lbl-first">Who goes first</span>
-        <div class="seg" role="group" aria-labelledby="lbl-first">
-          <button type="button" id="first-you" data-k="first" data-v="you">You</button>
-          <button type="button" id="first-ai" data-k="first" data-v="ai">Machine</button>
+  <section class="panel" id="lobby" hidden>
+    <div id="lobby-na" hidden>
+      <h2>Play friends online</h2>
+      <p class="muted">Online play works in the installed app. This preview inside Claude blocks internet connections, so here you can only play Robo.</p>
+    </div>
+    <form id="signin" hidden>
+      <div style="display:grid;gap:12px">
+        <h2>What's your name?</h2>
+        <p class="muted">Other players only see this name. Pick one your friends will recognize.</p>
+        <div class="namerow">
+          <input id="name-input" maxlength="20" autocomplete="nickname" placeholder="Your name" aria-label="Your name">
+          <button type="submit" class="btn primary" id="go-online">Go online</button>
         </div>
-        <p class="hint" id="first-hint" hidden>Applies when you start a new game.</p>
+        <p class="muted" id="signin-msg" aria-live="polite"></p>
       </div>
-      <div class="field">
-        <span class="label" id="lbl-str">Strength</span>
-        <div class="seg" role="group" aria-labelledby="lbl-str">
-          <button type="button" id="str-tough" data-k="strength" data-v="tough">Tough</button>
-          <button type="button" id="str-brutal" data-k="strength" data-v="brutal">Brutal</button>
-          <button type="button" id="str-imp" data-k="strength" data-v="impossible">Impossible</button>
-        </div>
+    </form>
+    <div id="online-home" hidden style="display:grid;gap:14px">
+      <div class="me">
+        <span class="live"></span>
+        <div class="grow">You're online as <b id="my-name"></b></div>
+        <button type="button" class="linkbtn" id="rename">Change name</button>
+        <button type="button" class="linkbtn" id="go-offline">Go offline</button>
       </div>
-      <div class="field">
-        <span class="label" id="lbl-eng">Brain</span>
-        <div class="seg" role="group" aria-labelledby="lbl-eng">
-          <button type="button" id="eng-auto" data-k="engine" data-v="auto">Solver + engine</button>
-          <button type="button" id="eng-local" data-k="engine" data-v="local">Engine only</button>
-        </div>
-        <p class="hint" id="eng-hint"></p>
+      <h2>Online now</h2>
+      <ul class="people" id="people"></ul>
+      <p class="muted" style="font-size:14px">Tap <b>Invite</b> to ask someone to play. Whoever sends the invite goes first.</p>
+    </div>
+  </section>
+
+  <div class="foe" id="foe">
+    <div class="avatar" id="opp-avatar" aria-hidden="true" hidden>?</div>
+    <div class="robot" id="robot" aria-hidden="true"><div class="ant"></div><div class="head"></div><div class="eyes"><span class="eye"></span><span class="eye"></span></div><div class="mouth"></div></div>
+    <div class="bubble" id="bubble" aria-live="polite"><p id="say">Hi! I'm Robo. Tap any column to drop your red disc.</p></div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="layer discs" id="discs"></div>
+    <svg class="layer face" viewBox="0 0 740 770" aria-hidden="true">
+      <defs>
+        <linearGradient id="bg-board" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--board-hi)"/><stop offset="1" style="stop-color:var(--board)"/></linearGradient>
+      </defs>
+      <path d="M40 770 L70 740 L120 740 L150 770 Z M590 770 L620 740 L670 740 L700 770 Z" style="fill:var(--board-edge)"/>
+      <rect x="0" y="716" width="740" height="36" rx="18" style="fill:var(--board-edge)"/>
+      <path id="face-path" fill-rule="evenodd" fill="url(#bg-board)"/>
+      <g id="rings" fill="none" style="stroke:var(--hole-ring)" stroke-width="5"></g>
+    </svg>
+    <svg class="layer lines" id="lines" viewBox="0 0 740 770" aria-hidden="true"></svg>
+    <div class="layer hits" id="hits"></div>
+    <div class="result" id="result" hidden></div>
+  </div>
+
+  <div class="score" id="score" aria-label="Score">
+    <div><b id="t-you">0</b><small><span class="mini red"></span>You</small></div>
+    <div><b id="t-draw">0</b><small>Ties</small></div>
+    <div><b id="t-ai">0</b><small><span class="mini yellow"></span>Robo</small></div>
+  </div>
+
+  <div class="controls" id="ai-controls">
+    <div class="actions">
+      <button type="button" class="btn primary" id="new-game">New game</button>
+      <button type="button" class="btn" id="undo">Take back</button>
+    </div>
+    <div class="field">
+      <span class="label" id="lbl-first">Who starts?</span>
+      <div class="seg" role="group" aria-labelledby="lbl-first">
+        <button type="button" id="first-you" data-k="first" data-v="you"><span class="mini red"></span>Me</button>
+        <button type="button" id="first-ai" data-k="first" data-v="ai"><span class="mini yellow"></span>Robo</button>
       </div>
-      <div class="actions">
-        <button type="button" class="btn primary" id="new-game">New game</button>
-        <button type="button" class="btn" id="undo">Undo move</button>
+      <p class="hint" id="first-hint" hidden>This starts with your next game.</p>
+    </div>
+    <div class="field">
+      <span class="label" id="lbl-str">How hard?</span>
+      <div class="seg" role="group" aria-labelledby="lbl-str">
+        <button type="button" id="str-tough" data-k="strength" data-v="tough">Hard</button>
+        <button type="button" id="str-brutal" data-k="strength" data-v="brutal">Very hard</button>
+        <button type="button" id="str-imp" data-k="strength" data-v="impossible">Impossible</button>
       </div>
-      <div class="readout">
-        <span class="label">Machine's read</span>
-        <p class="verdict" id="verdict">Waiting for the first move.</p>
-        <div class="meter" aria-hidden="true"><i id="meter-fill"></i></div>
-        <div class="meter-l" aria-hidden="true"><span>You</span><span>Machine</span></div>
-        <p class="detail" id="detail">&nbsp;</p>
-      </div>
-      <div class="field">
-        <span class="label">Moves (column numbers)</span>
-        <p class="log" id="log">None yet</p>
-      </div>
-      <div class="tally">
-        <div><b id="t-you">0</b><small>You</small></div>
-        <div><b id="t-draw">0</b><small>Draws</small></div>
-        <div><b id="t-ai">0</b><small>Machine</small></div>
-      </div>
-      <button type="button" class="btn" id="install" hidden>Install app</button>
-    </aside>
-  </main>
+      <p class="hint" id="str-hint"></p>
+    </div>
+  </div>
+  <div class="controls" id="online-controls" hidden>
+    <div class="actions">
+      <button type="button" class="btn" id="leave-game">Leave game</button>
+      <button type="button" class="btn primary" id="rematch-btn" disabled>Rematch</button>
+    </div>
+  </div>
+  <p class="help" id="help">Get four of your discs in a row: across, up and down, or slanted.</p>
 </div>
+<div class="modal" id="modal" hidden></div>
+<div class="toast" id="toast" role="status" hidden></div>
 
 <script>
 function engineFactory() {
@@ -370,19 +481,74 @@ function engineFactory() {
 (() => {
   const W = 7, H = 6, WIN = 100000, MATE = WIN - 100;
   const TIME = { tough: 350, brutal: 1500, impossible: 4000 };
+  const HINT = {
+    tough: 'Robo thinks quickly. Beatable if you are sharp.',
+    brutal: 'Robo thinks longer and rarely makes mistakes.',
+    impossible: 'Robo thinks as hard as it can. Almost nobody wins.'
+  };
   const $ = s => document.querySelector(s);
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const cx = c => 70 + 100 * c, cy = r => 670 - 100 * r, R = 42;
 
   const S = { moves: [], board: new Int8Array(42), h: new Int8Array(7), over: false, busy: false, token: 0,
-    human: 1, first: 'you', strength: 'impossible', engine: 'auto', thinking: false, result: null };
+    human: 1, first: 'you', strength: 'impossible', thinking: false, result: null };
   let solverDown = false;
+  let MODE = 'ai', OG = null, aiDirty = false;
+  var Online = null;
   let tally = { you: 0, ai: 0, draw: 0 };
+  let soundOn = true;
   try { const t = JSON.parse(localStorage.getItem('c4g-tally')); if (t) Object.assign(tally, t); } catch (e) {}
-  try { const p = JSON.parse(localStorage.getItem('c4g-prefs')); if (p) for (const k of ['first', 'strength', 'engine']) if (p[k]) S[k] = p[k]; } catch (e) {}
-  const save = () => {
-    try { localStorage.setItem('c4g-tally', JSON.stringify(tally)); localStorage.setItem('c4g-prefs', JSON.stringify({ first: S.first, strength: S.strength, engine: S.engine })); } catch (e) {}
+  try { const p = JSON.parse(localStorage.getItem('c4g-prefs')); if (p) { for (const k of ['first', 'strength']) if (p[k]) S[k] = p[k]; if (p.sound === false) soundOn = false; } } catch (e) {}
+  const save = () => { try {
+    localStorage.setItem('c4g-tally', JSON.stringify(tally));
+    localStorage.setItem('c4g-prefs', JSON.stringify({ first: S.first, strength: S.strength, sound: soundOn }));
+  } catch (e) {} };
+
+  // ---------- sound (synthesized, no files) ----------
+  const Snd = {
+    ctx: null, master: null,
+    init() {
+      if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.master = this.ctx.createGain(); this.master.gain.value = .9; this.master.connect(this.ctx.destination); } catch (e) { return; } }
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+    },
+    ok() { return soundOn && this.ctx && this.ctx.state === 'running'; },
+    tone(f, dur, type = 'sine', vol = .2, at = 0, f2) {
+      if (!this.ok()) return;
+      const t = this.ctx.currentTime + at, o = this.ctx.createOscillator(), g = this.ctx.createGain();
+      o.type = type; o.frequency.setValueAtTime(f, t);
+      if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + .02);
+    },
+    noise(dur, vol, at = 0, freq = 2000, freq2) {
+      if (!this.ok()) return;
+      const t = this.ctx.currentTime + at, n = Math.floor(this.ctx.sampleRate * dur);
+      const buf = this.ctx.createBuffer(1, n, this.ctx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      const s = this.ctx.createBufferSource(), fl = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+      s.buffer = buf; fl.type = 'bandpass'; fl.Q.value = 1.2; fl.frequency.setValueAtTime(freq, t);
+      if (freq2) fl.frequency.exponentialRampToValueAtTime(freq2, t + dur);
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      s.connect(fl); fl.connect(g); g.connect(this.master); s.start(t);
+    },
+    clack(v = 1, high = false) {
+      this.tone(high ? 330 : 240, .1, 'triangle', .32 * v, 0, 90);
+      this.tone(95, .14, 'sine', .35 * v, 0, 55);
+      this.noise(.05, .35 * v, 0, 2800);
+    },
+    whoosh() { this.noise(.45, .18, 0, 400, 3000); },
+    tap() { this.tone(660, .06, 'sine', .08); },
+    win() {
+      [523, 659, 784, 1047].forEach((f, i) => this.tone(f, .2, 'square', .07, i * .1));
+      [784, 988, 1175, 1568].forEach((f, i) => this.tone(f, .5, 'triangle', .1, .45 + i * .02));
+    },
+    lose() { [392, 370, 349, 294].forEach((f, i) => this.tone(f, i === 3 ? .7 : .3, 'sawtooth', .05, i * .28, f * .96)); },
+    draw() { this.tone(523, .2, 'triangle', .12, 0); this.tone(523, .4, 'triangle', .12, .22); },
+    think() { this.tone(1200, .04, 'sine', .04); }
   };
+  document.addEventListener('pointerdown', () => Snd.init(), { passive: true });
+  document.addEventListener('keydown', () => Snd.init());
 
   // ---------- engine plumbing ----------
   let worker = null, reqId = 0, inlineThink = null;
@@ -402,221 +568,729 @@ function engineFactory() {
     return new Promise(res => { const id = ++reqId; pending.set(id, res); worker.postMessage({ id, moves, ms }); })
       .then(r => r || inline(moves, ms));
   }
+  // Free perfect-play solver. Works in the installed app; blocked inside the preview.
   async function askSolver(moves) {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 3000);
     try {
       const r = await fetch('https://connect4.gamesolver.org/solve?pos=' + moves.map(c => c + 1).join(''), { signal: ctrl.signal });
       if (!r.ok) throw new Error('bad status');
-      const j = await r.json();
-      const sc = j && j.score;
+      const j = await r.json(), sc = j && j.score;
       if (!Array.isArray(sc) || sc.length !== 7) throw new Error('bad data');
       let best = -1, bs = -1e9;
-      for (const c of [3, 2, 4, 1, 5, 0, 6]) {
-        if (S.h[c] >= H || sc[c] === 100) continue;
-        if (sc[c] > bs) { bs = sc[c]; best = c; }
-      }
+      for (const c of [3, 2, 4, 1, 5, 0, 6]) { if (S.h[c] >= H || sc[c] === 100) continue; if (sc[c] > bs) { bs = sc[c]; best = c; } }
       if (best < 0) throw new Error('no move');
       return { move: best, src: 'solver', score: bs };
     } finally { clearTimeout(t); }
   }
 
-  // ---------- board ----------
-  const boardEl = $('#board'), previewEl = $('#preview');
-  const cells = [], cols = [], slots = [];
+  // ---------- board drawing ----------
+  const stage = $('#stage'), discsEl = $('#discs'), hitsEl = $('#hits'), linesEl = $('#lines');
+  (function drawFace() {
+    let d = 'M30 100 H710 A30 30 0 0 1 740 130 V710 A30 30 0 0 1 710 740 H30 A30 30 0 0 1 0 710 V130 A30 30 0 0 1 30 100 Z';
+    let rings = '';
+    for (let c = 0; c < W; c++) for (let r = 0; r < H; r++) {
+      const x = cx(c), y = cy(r), rr = 40;
+      d += ` M${x - rr} ${y} a${rr} ${rr} 0 1 0 ${rr * 2} 0 a${rr} ${rr} 0 1 0 ${-rr * 2} 0 Z`;
+      rings += `<circle cx="${x}" cy="${y}" r="${rr + 1}"/>`;
+    }
+    $('#face-path').setAttribute('d', d);
+    $('#rings').innerHTML = rings;
+  })();
+  function posDisc(el, c, y) {
+    el.style.left = (cx(c) - R) / 7.4 + '%';
+    el.style.top = (y - R) / 7.7 + '%';
+    el.style.width = (2 * R) / 7.4 + '%';
+    el.style.height = (2 * R) / 7.7 + '%';
+  }
+  const discEls = new Array(42).fill(null);
+  const ghostEl = document.createElement('div');
+  ghostEl.className = 'disc red ghost hide';
+  posDisc(ghostEl, 3, 50);
+  discsEl.appendChild(ghostEl);
+
+  const hits = [];
   for (let c = 0; c < W; c++) {
     const b = document.createElement('button');
-    b.type = 'button'; b.className = 'col'; b.id = 'col-' + c;
-    b.setAttribute('aria-label', 'Drop a disc in column ' + (c + 1));
-    for (let r = 0; r < H; r++) { const d = document.createElement('div'); d.className = 'cell'; b.appendChild(d); cells[c * H + r] = d; }
+    b.type = 'button'; b.className = 'hit'; b.id = 'col-' + c;
+    b.setAttribute('aria-label', 'Drop your disc in column ' + (c + 1));
     b.addEventListener('click', () => humanMove(c));
-    b.addEventListener('pointerenter', () => ghost(c));
+    b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') ghost(c); });
     b.addEventListener('focus', () => ghost(c));
-    boardEl.appendChild(b); cols.push(b);
-    const s = document.createElement('div'); s.className = 'slot'; previewEl.appendChild(s); slots.push(s);
+    hitsEl.appendChild(b); hits.push(b);
   }
-  boardEl.addEventListener('pointerleave', () => ghost(-1));
+  hitsEl.addEventListener('pointerleave', () => ghost(-1));
 
   const turnPiece = () => (S.moves.length % 2 === 0 ? 1 : 2);
   const isHumanTurn = () => turnPiece() === S.human;
-  const cls = p => (p === S.human ? 'red' : 'yellow');
+  const canHumanPlay = () => !S.over && !S.busy && isHumanTurn();
+  const colorOf = p => (p === S.human ? 'red' : 'yellow');
   let hover = -1;
   function ghost(c) {
     hover = c;
-    slots.forEach((s, i) => { s.className = 'slot' + (i === c && canHumanPlay() && S.h[i] < H ? ' red' : ''); });
+    if (c < 0 || !canHumanPlay() || S.h[c] >= H) { ghostEl.classList.add('hide'); return; }
+    posDisc(ghostEl, c, 50);
+    ghostEl.classList.remove('hide');
   }
-  const canHumanPlay = () => !S.over && !S.busy && isHumanTurn();
 
-  function placeDisc(c, r, p, animate) {
-    const cell = cells[c * H + r];
-    boardEl.querySelectorAll('.disc.last').forEach(d => d.classList.remove('last'));
-    const d = document.createElement('div');
-    d.className = 'disc ' + cls(p) + ' last';
-    cell.appendChild(d);
-    if (!animate || reduced || !d.animate) return Promise.resolve();
-    const size = cell.getBoundingClientRect().height;
-    const gap = parseFloat(getComputedStyle(cols[c]).rowGap) || 0;
-    const dist = (H - r) * (size + gap) + size * 0.4;
-    const a = d.animate([
-      { transform: `translateY(${-dist}px)`, easing: 'cubic-bezier(.5,0,1,1)' },
-      { transform: 'translateY(0)', offset: 0.74, easing: 'ease-out' },
-      { transform: `translateY(${-size * 0.14}px)`, offset: 0.87, easing: 'ease-in' },
+  function dropAnim(el, r) {
+    if (reduced || !el.animate) { Snd.clack(1); return Promise.resolve(); }
+    const hPx = stage.getBoundingClientRect().height, unit = hPx / 770;
+    const startY = -(cy(r) - 50) * unit, cell = 100 * unit, rows = H - r;
+    const fall = 170 + rows * 48, total = fall / 0.6;
+    const a = el.animate([
+      { transform: `translateY(${startY}px)`, easing: 'cubic-bezier(.5,0,.95,.6)' },
+      { transform: 'translateY(0) scale(1.1,.86)', offset: .6, easing: 'ease-out' },
+      { transform: `translateY(${-cell * .24}px) scale(.96,1.04)`, offset: .75, easing: 'ease-in' },
+      { transform: 'translateY(0) scale(1.05,.93)', offset: .86, easing: 'ease-out' },
+      { transform: `translateY(${-cell * .07}px)`, offset: .93, easing: 'ease-in' },
       { transform: 'translateY(0)' }
-    ], { duration: 230 + (H - r) * 55 });
+    ], { duration: total });
+    setTimeout(() => { Snd.clack(1, rows > 3); stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake'); }, total * .6);
+    setTimeout(() => Snd.clack(.35, true), total * .86);
+    setTimeout(() => Snd.clack(.12, true), total * .99);
     return a.finished.catch(() => {});
   }
-  function findWin(c, r, p) {
+  function addDisc(c, r, p, animate) {
+    const el = document.createElement('div');
+    el.className = 'disc ' + colorOf(p);
+    posDisc(el, c, cy(r));
+    discsEl.appendChild(el);
+    discEls[c * H + r] = el;
+    return animate ? dropAnim(el, r) : Promise.resolve();
+  }
+  function findWin(c, r, p, b = S.board) {
     for (const [dc, dr] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
-      const line = [c * H + r];
+      const line = [[c, r]];
       for (const s of [1, -1]) {
         let cc = c + dc * s, rr = r + dr * s;
-        while (cc >= 0 && cc < W && rr >= 0 && rr < H && S.board[cc * H + rr] === p) { line.push(cc * H + rr); cc += dc * s; rr += dr * s; }
+        while (cc >= 0 && cc < W && rr >= 0 && rr < H && b[cc * H + rr] === p) { line.push([cc, rr]); cc += dc * s; rr += dr * s; }
       }
       if (line.length >= 4) return line;
     }
     return null;
   }
+  function wouldWin(p, c) {
+    if (S.h[c] >= H) return false;
+    const r = S.h[c], b = S.board.slice(); b[c * H + r] = p;
+    return !!findWin(c, r, p, b);
+  }
   async function drop(c) {
     const r = S.h[c], p = turnPiece();
     S.board[c * H + r] = p; S.h[c]++; S.moves.push(c);
-    renderLog();
-    await placeDisc(c, r, p, true);
+    await addDisc(c, r, p, true);
     const line = findWin(c, r, p);
     if (line) { finish(p === S.human ? 'you' : 'ai', line); return true; }
     if (S.moves.length === 42) { finish('draw', null); return true; }
     return false;
   }
+  function clearWinFx() {
+    linesEl.innerHTML = '';
+    discsEl.querySelectorAll('.disc.win').forEach(d => d.classList.remove('win'));
+    $('#result').hidden = true; $('#result').innerHTML = '';
+  }
   function redraw() {
-    boardEl.querySelectorAll('.disc').forEach(d => d.remove());
-    boardEl.classList.remove('done');
-    S.moves.forEach((c, i) => {
-      const hh = S.moves.slice(0, i).filter(x => x === c).length;
-      placeDisc(c, hh, i % 2 === 0 ? 1 : 2, false);
-    });
+    clearWinFx();
+    discEls.forEach((d, i) => { if (d) d.remove(); discEls[i] = null; });
+    const hh = new Int8Array(7);
+    S.moves.forEach((c, i) => { addDisc(c, hh[c], i % 2 === 0 ? 1 : 2, false); hh[c]++; });
+  }
+
+  // ---------- robot talk ----------
+  function say(text, mood) {
+    const b = $('#bubble'), rb = $('#robot');
+    $('#say').textContent = text;
+    b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
+    rb.className = 'robot' + (mood ? ' ' + mood : '');
+    if (mood === 'happy' || mood === 'sad') { void rb.offsetWidth; rb.classList.add('bounce'); }
+  }
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  function talkAfterMove(res, blocked) {
+    let s = res.src === 'engine' || !res.src ? res.score : null;
+    if (res.src === 'book') return say(pick(["I'll take the middle. It's the best spot!", 'Middle column. Your turn!']), 'happy');
+    if (res.src === 'solver') s = res.score > 0 ? WIN - 20 : res.score < 0 ? -(WIN - 20) : 0;
+    if (s > MATE) {
+      if (res.src === 'solver') return say(pick(["I've got you now. I can't lose this one!", 'I already know how I win. Good luck!']), 'happy');
+      const n = Math.ceil((WIN - s) / 2);
+      return say(n <= 1 ? 'Next move I win. Can you stop me?' : `I can win in ${n} more moves, no matter what you do!`, 'happy');
+    }
+    if (s < -MATE) return say(pick(['Uh oh... you could win this. Don’t mess up!', 'Hmm, you are in a great spot. Careful!']), 'sad');
+    if (blocked) return say(pick(['Nope! I blocked you.', 'Nice try! Blocked.', 'Not so fast! I saw that.']), 'happy');
+    if (res.exact && s === 0) return say('If we both play perfectly, this ends in a tie.', 'flat');
+    if (s > 60) return say(pick(['I like where this is going.', 'I feel good about this.', 'Your move. Think carefully!']), 'happy');
+    if (s < -60) return say(pick(['Hmm, you are playing well!', 'Good move. I need to be careful.']), 'sad');
+    return say(pick(['Nice move. It’s still even.', 'Your turn!', 'Good one. Let’s see what you do next.']), 'flat');
   }
 
   // ---------- flow ----------
   async function humanMove(c) {
     if (!canHumanPlay() || S.h[c] >= H) return;
+    if (MODE === 'online' && (!OG || !OG.ready)) return;
+    Snd.init();
     S.busy = true; ghost(-1); update();
+    const idx = S.moves.length;
     const ended = await drop(c);
+    if (MODE === 'online') { await Online.sendMove(c, idx, ended); S.busy = false; update(); return; }
     S.busy = false;
     if (!ended) aiTurn(); else update();
-    if (!ended) return;
   }
   async function aiTurn() {
     if (S.over) return;
     const token = ++S.token;
     S.busy = true; S.thinking = true; update();
+    say(pick(['Hmm... let me think.', 'Thinking...', 'Let me see...']), 'thinking');
+    const tick = setInterval(() => Snd.think(), 700);
     const t0 = performance.now();
     let res = null;
-    if (S.moves.length === 0) res = { move: 3, src: 'book' };
-    else if (S.engine === 'auto' && S.strength === 'impossible' && !solverDown) {
-      try { res = await askSolver(S.moves.slice()); } catch (e) { solverDown = true; }
-    }
-    if (!res) res = await runEngine(S.moves.slice(), TIME[S.strength]);
-    const el = performance.now() - t0;
-    if (el < 450) await sleep(450 - el);
+    try {
+      if (S.moves.length === 0) res = { move: 3, src: 'book' };
+      else if (S.strength === 'impossible' && !solverDown) {
+        try { res = await askSolver(S.moves.slice()); } catch (e) { solverDown = true; }
+      }
+      if (!res) { res = await runEngine(S.moves.slice(), TIME[S.strength]); res.src = 'engine'; }
+      const el = performance.now() - t0;
+      if (el < 500) await sleep(500 - el);
+    } finally { clearInterval(tick); }
     if (token !== S.token) return;
+    const blocked = wouldWin(S.human, res.move);
     S.thinking = false;
-    verdict(res, performance.now() - t0);
     const ended = await drop(res.move);
     if (token !== S.token) return;
+    if (!ended) talkAfterMove(res, blocked);
     S.busy = false;
-    if (!ended) update();
+    update();
     if (hover >= 0) ghost(hover);
   }
-  function finish(result, line) {
+  async function finish(result, line) {
     S.over = true; S.busy = false; S.thinking = false; S.result = result;
-    tally[result]++; save();
-    if (line) { line.forEach(i => { const d = cells[i].querySelector('.disc'); if (d) d.classList.add('win'); }); boardEl.classList.add('done'); }
+    const online = MODE === 'online' && OG;
+    if (!online) { tally[result]++; save(); }
+    const scoreEl = result === 'you' ? '#t-you' : result === 'ai' ? '#t-ai' : '#t-draw';
+    if (line) {
+      line.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+      line.forEach(([c, r]) => { const d = discEls[c * H + r]; if (d) d.classList.add('win'); });
+      const a = line[0], b = line[line.length - 1];
+      const x1 = cx(a[0]), y1 = cy(a[1]), x2 = cx(b[0]), y2 = cy(b[1]);
+      const len = Math.hypot(x2 - x1, y2 - y1);
+      linesEl.innerHTML = `<line class="winline" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke-dasharray="${len}" stroke-dashoffset="${reduced ? 0 : len}"/>`;
+      const ln = linesEl.firstChild;
+      if (!reduced && ln.animate) ln.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 450, easing: 'ease-out', fill: 'forwards' });
+    }
+    const opp = online ? OG.oppName : 'Robo';
+    if (result === 'you') { Snd.win(); confetti(); say(online ? 'Four in a row! You won this one.' : 'No way! You beat me! Want a rematch?', 'sad'); }
+    else if (result === 'ai') { Snd.lose(); say(online ? `${opp} got four in a row.` : 'Four in a row! I win this time.', 'happy'); }
+    else { Snd.draw(); say('The board is full. A tie! That was close.', 'flat'); }
+    if (online) Online.setPlaying(false);
     update();
+    if (!online) { const sEl = $(scoreEl); sEl.classList.remove('bump'); void sEl.offsetWidth; sEl.classList.add('bump'); }
+    await sleep(line ? 900 : 300);
+    if (!S.over) return;
+    const title = result === 'you' ? 'You win!' : result === 'ai' ? `${opp} wins` : 'It’s a tie';
+    if (online) {
+      const sub = result === 'you' ? `You beat ${opp}. Nice!` : result === 'ai' ? 'So close. Ask for a rematch?' : 'Nobody got four in a row.';
+      showCard(title, result, sub, [
+        { label: 'Rematch', primary: true, fn: () => Online.rematch() },
+        { label: 'Back to lobby', fn: () => Online.toLobby() },
+        { label: 'See board', fn: () => { $('#result').hidden = true; } }
+      ]);
+    } else {
+      const sub = result === 'you' ? 'You beat the robot. Amazing!' : result === 'ai' ? 'So close. Try again?' : 'Nobody got four in a row.';
+      showCard(title, result, sub, [
+        { label: 'Play again', primary: true, fn: newGame },
+        { label: 'See board', fn: () => { $('#result').hidden = true; } }
+      ]);
+    }
   }
-  function newGame() {
+  function showCard(title, cls, sub, buttons) {
+    const rEl = $('#result');
+    rEl.textContent = '';
+    const card = document.createElement('div');
+    card.className = 'card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-label', title);
+    const h = document.createElement('h2'); h.className = cls; h.textContent = title;
+    const p = document.createElement('p'); p.textContent = sub;
+    const row = document.createElement('div'); row.className = 'row';
+    buttons.forEach(b => {
+      const el = document.createElement('button');
+      el.type = 'button'; el.className = 'btn' + (b.primary ? ' primary' : ''); el.textContent = b.label;
+      el.addEventListener('click', b.fn); row.appendChild(el);
+    });
+    card.append(h, p, row); rEl.appendChild(card); rEl.hidden = false;
+    row.firstChild.focus({ preventScroll: true });
+  }
+
+  let resetting = false;
+  async function newGame() {
+    if (resetting) return;
+    resetting = true;
     S.token++;
+    S.busy = true; S.thinking = false;
+    $('#result').hidden = true;
+    const present = discEls.filter(Boolean);
+    if (present.length && !reduced) {
+      Snd.whoosh();
+      const hPx = stage.getBoundingClientRect().height;
+      await Promise.all(present.map((d, i) => d.animate ?
+        d.animate([{ transform: 'translateY(0)' }, { transform: `translateY(${hPx}px)` }],
+          { duration: 420, delay: (i % 7) * 25 + Math.random() * 60, easing: 'cubic-bezier(.6,0,1,.6)', fill: 'forwards' }).finished.catch(() => {}) : null));
+    }
     S.moves = []; S.board.fill(0); S.h.fill(0);
-    S.over = false; S.busy = false; S.thinking = false; S.result = null;
+    S.over = false; S.busy = false; S.result = null;
     S.human = S.first === 'you' ? 1 : 2;
-    redraw(); renderLog();
-    $('#verdict').textContent = S.first === 'you' ? 'Waiting for your first move.' : 'The machine opens.';
-    $('#detail').innerHTML = '&nbsp;'; meter(0);
+    redraw();
+    resetting = false;
+    if (S.first === 'you') say(pick(['Your turn! Tap a column to drop your red disc.', 'You go first. Tap any column!']), 'flat');
     update();
     if (S.first === 'ai') aiTurn();
   }
   function undo() {
-    if (S.thinking) return;
+    if (S.thinking || resetting) return;
     const humanMoves = S.moves.filter((c, i) => (i % 2 === 0 ? 1 : 2) === S.human).length;
     if (!humanMoves) return;
     S.token++;
     do { const c = S.moves.pop(); S.h[c]--; S.board[c * H + S.h[c]] = 0; } while (S.moves.length && turnPiece() !== S.human);
     S.over = false; S.busy = false; S.result = null;
-    redraw(); renderLog();
-    $('#verdict').textContent = 'Move taken back. Your turn again.';
+    redraw(); Snd.tap();
+    say('Okay, take that move back. Your turn!', 'flat');
     update();
   }
 
-  // ---------- readouts ----------
-  const fmtMs = ms => (ms < 1000 ? Math.round(ms) + ' ms' : (ms / 1000).toFixed(1) + ' s');
-  const fmtN = n => (n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n));
-  function meter(v) {
-    const f = $('#meter-fill');
-    v = Math.max(-1, Math.min(1, v));
-    f.style.background = v >= 0 ? 'var(--yellow)' : 'var(--red)';
-    f.style.left = v >= 0 ? '50%' : (50 + v * 50) + '%';
-    f.style.width = Math.abs(v) * 50 + '%';
-  }
-  function verdict(res, ms) {
-    let txt, lean;
-    if (res.src === 'book') {
-      txt = 'Opens in the middle column, the only first move that wins with perfect play.'; lean = 0.3;
-      $('#detail').textContent = 'Opening book · ' + fmtMs(ms);
-    } else if (res.src === 'solver') {
-      if (res.score > 0) { txt = 'The solver sees a forced win for the machine.'; lean = 1; }
-      else if (res.score === 0) { txt = 'Perfect play from here ends in a draw.'; lean = 0; }
-      else { txt = 'You hold a forced win. Every move has to be the best one.'; lean = -1; }
-      $('#detail').textContent = 'Perfect solver (online) · ' + fmtMs(ms);
-    } else {
-      const s = res.score;
-      if (s > MATE) { const n = Math.ceil((WIN - s) / 2); txt = `Forced win for the machine in ${n} move${n > 1 ? 's' : ''}.`; lean = 1; }
-      else if (s < -MATE) { const n = Math.ceil((WIN + s) / 2); txt = `You can force a win in ${n} move${n > 1 ? 's' : ''}. Find it.`; lean = -1; }
-      else if (res.exact) { txt = 'Perfect play from here ends in a draw.'; lean = 0; }
-      else { lean = s / 250; txt = s > 60 ? 'The machine likes its position.' : s < -60 ? 'The machine is under pressure.' : 'Level position. Nothing is forced yet.'; }
-      $('#detail').textContent = `Built-in engine · ${res.depth} moves deep · ${fmtN(res.nodes)} positions · ${fmtMs(ms)}`;
-    }
-    $('#verdict').textContent = txt; meter(lean);
-  }
-  function renderLog() {
-    const log = $('#log');
-    if (!S.moves.length) { log.textContent = 'None yet'; return; }
-    log.innerHTML = S.moves.map((c, i) => `<span class="${(i % 2 === 0 ? 1 : 2) === S.human ? 'r' : 'y'}">${c + 1}</span>`).join(' ');
-  }
   function update() {
-    const st = $('#status'), dot = $('#turn-dot');
-    let text, color = isHumanTurn() ? 'red' : 'yellow', pulse = false;
-    if (S.over) {
-      text = S.result === 'you' ? 'You beat it. Take a screenshot.' : S.result === 'ai' ? 'Four in a row for the machine.' : 'Board full. A draw against this is a good result.';
-      color = S.result === 'you' ? 'red' : S.result === 'ai' ? 'yellow' : color;
-    } else if (S.thinking) { text = 'The machine is thinking…'; pulse = true; }
-    else if (isHumanTurn()) text = S.moves.length ? 'Your move.' : 'Your move. Pick a column.';
-    else text = 'Machine to move.';
-    st.textContent = text;
-    dot.className = 'dot ' + color + (pulse ? ' pulse' : '');
-    cols.forEach((b, c) => { const lock = !canHumanPlay() || S.h[c] >= H; b.classList.toggle('locked', lock); b.setAttribute('aria-disabled', lock); });
+    hits.forEach((b, c) => { const lock = !canHumanPlay() || S.h[c] >= H; b.classList.toggle('locked', lock); b.setAttribute('aria-disabled', lock); });
     document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', S[b.dataset.k] === b.dataset.v));
     const humanMoves = S.moves.filter((c, i) => (i % 2 === 0 ? 1 : 2) === S.human).length;
     $('#undo').disabled = S.thinking || !humanMoves;
     $('#t-you').textContent = tally.you; $('#t-ai').textContent = tally.ai; $('#t-draw').textContent = tally.draw;
-    const want = S.first === 'you' ? 1 : 2;
-    $('#first-hint').hidden = want === S.human;
-    const eh = $('#eng-hint');
-    if (S.engine === 'local') eh.textContent = 'Runs fully on your device, offline too.';
-    else if (S.strength !== 'impossible') eh.textContent = 'The online solver only plays on Impossible. The built-in engine plays here.';
-    else if (solverDown) eh.textContent = 'The online solver is not reachable from here, so the built-in engine is playing.';
-    else eh.textContent = 'Asks a perfect online solver each move and falls back to the built-in engine.';
+    $('#first-hint').hidden = (S.first === 'you' ? 1 : 2) === S.human;
+    $('#str-hint').textContent = HINT[S.strength];
+    $('#sound').setAttribute('aria-pressed', soundOn);
+    $('#sound-label').textContent = soundOn ? 'Sound on' : 'Sound off';
+    $('#wave').style.display = soundOn ? '' : 'none';
+    $('#mute').style.display = soundOn ? 'none' : '';
+    if (!canHumanPlay()) ghostEl.classList.add('hide');
+    if (Online) Online.updateBtns();
   }
+
+  // ---------- confetti ----------
+  function confetti() {
+    if (reduced) return;
+    const cv = $('#confetti'), ctx = cv.getContext('2d');
+    cv.hidden = false;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const w = cv.width = innerWidth * dpr, h = cv.height = innerHeight * dpr;
+    const cols = ['#E8323F', '#FFC61A', '#3566EC', '#FFFFFF', '#2FC786'];
+    const ps = Array.from({ length: 170 }, () => ({
+      x: w / 2 + (Math.random() - .5) * w * .3, y: h * .45, vx: (Math.random() - .5) * 26 * dpr, vy: (-Math.random() * 22 - 8) * dpr,
+      s: (6 + Math.random() * 7) * dpr, r: Math.random() * 6, vr: (Math.random() - .5) * .4, c: cols[Math.floor(Math.random() * cols.length)], round: Math.random() < .35
+    }));
+    const t0 = performance.now();
+    (function frame(t) {
+      ctx.clearRect(0, 0, w, h);
+      for (const p of ps) {
+        p.vy += .55 * dpr; p.vx *= .985; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c;
+        if (p.round) { ctx.beginPath(); ctx.arc(0, 0, p.s / 2, 0, 7); ctx.fill(); } else ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2);
+        ctx.restore();
+      }
+      if (t - t0 < 3200) requestAnimationFrame(frame); else { ctx.clearRect(0, 0, w, h); cv.hidden = true; }
+    })(t0);
+  }
+
+  // ---------- online play (Firebase) ----------
+  const FIREBASE_CONFIG = {
+    apiKey: 'AIzaSyByDZXSnvDcEWigjDXcUxsAwWfkfB-hXmo',
+    authDomain: 'project-3333600848385438143.firebaseapp.com',
+    // If your Realtime Database is not in the US, copy its URL from the Firebase console here.
+    databaseURL: 'https://project-3333600848385438143-default-rtdb.firebaseio.com',
+    projectId: 'project-3333600848385438143',
+    storageBucket: 'project-3333600848385438143.firebasestorage.app',
+    messagingSenderId: '492552413084',
+    appId: '1:492552413084:web:95453150b6f5f5972f3259',
+    measurementId: 'G-WK74MMJ5XZ'
+  };
+  const FB_VER = '10.12.2';
+  function toast(msg) {
+    const t = $('#toast');
+    t.textContent = msg; t.hidden = false;
+    clearTimeout(toast.t); toast.t = setTimeout(() => { t.hidden = true; }, 3500);
+  }
+  const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({ code: 'timeout' }), ms))]);
+  function setView(v) {
+    const game = v !== 'lobby';
+    $('#lobby').hidden = v !== 'lobby';
+    $('#foe').hidden = !game; $('#stage').hidden = !game;
+    $('#score').hidden = v !== 'ai'; $('#ai-controls').hidden = v !== 'ai';
+    $('#online-controls').hidden = v !== 'game';
+    $('#robot').hidden = v !== 'ai'; $('#opp-avatar').hidden = v !== 'game';
+    $('#tab-ai').setAttribute('aria-selected', v === 'ai');
+    $('#tab-online').setAttribute('aria-selected', v !== 'ai');
+  }
+
+  Online = (() => {
+    const hosted = !!document.querySelector('link[rel="manifest"]');
+    let auth = null, rdb = null, fs = null, me = null, statusRef = null, started = false, wentOffline = false;
+    let myName = '';
+    try { myName = localStorage.getItem('c4g-name') || ''; } catch (e) {}
+    let peopleQ = null, invitesUnsub = null, gameUnsub = null, chain = Promise.resolve();
+    let people = {}, sent = null, sentUnsub = null, sentTimer = null, incoming = null, seenInvites = new Set(), oppGoneTimer = null;
+    const ts = () => firebase.firestore.FieldValue.serverTimestamp();
+
+    function loadScript(src) {
+      return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej({ code: 'network' }); document.head.appendChild(s); });
+    }
+    async function loadFirebase() {
+      if (window.firebase && firebase.firestore && firebase.database && firebase.auth) return;
+      const bases = [`https://www.gstatic.com/firebasejs/${FB_VER}/`, `https://cdn.jsdelivr.net/npm/firebase@${FB_VER}/`];
+      let lastErr = null;
+      for (const base of bases) {
+        try {
+          if (!window.firebase) await loadScript(base + 'firebase-app-compat.js');
+          await Promise.all(['auth', 'database', 'firestore'].map(n => loadScript(base + `firebase-${n}-compat.js`)));
+          return;
+        } catch (e) { lastErr = e; }
+      }
+      throw lastErr;
+    }
+    function msg(t) { $('#signin-msg').textContent = t; }
+    function explain(e) {
+      const c = String((e && (e.code || e.message)) || '');
+      if (/operation-not-allowed|admin-restricted/.test(c)) return 'Anonymous sign-in is turned off. In Firebase, open Authentication > Sign-in method and turn on Anonymous.';
+      if (/unauthorized-domain|requests-from-referer/.test(c)) return 'This website is not allowed yet. Add it in Firebase under Authentication > Settings > Authorized domains.';
+      if (/permission|PERMISSION/.test(c)) return 'Firebase blocked the request. Check that both sets of rules are published.';
+      if (/network|timeout|unavailable/.test(c)) return 'Could not reach the server. Check your internet and try again.';
+      return 'Could not go online. Please try again.';
+    }
+    function presence(online) {
+      return { name: myName, online, playing: !!(OG && !S.over), lastSeen: firebase.database.ServerValue.TIMESTAMP };
+    }
+    function onConn(snap) {
+      if (snap.val() !== true || !statusRef || wentOffline) return;
+      statusRef.onDisconnect().update({ online: false, playing: false, lastSeen: firebase.database.ServerValue.TIMESTAMP })
+        .then(() => statusRef.set(presence(true))).catch(() => {});
+    }
+    function setPlaying(v) { if (statusRef && started) statusRef.update({ playing: !!v }).catch(() => {}); }
+
+    function open() {
+      if (!hosted) { $('#lobby-na').hidden = false; $('#signin').hidden = true; $('#online-home').hidden = true; return; }
+      $('#lobby-na').hidden = true;
+      if (started) { showHome(); return; }
+      showSignin();
+      if (myName && !wentOffline) goOnline(myName);
+    }
+    function showSignin() {
+      $('#signin').hidden = false; $('#online-home').hidden = true;
+      $('#name-input').value = myName;
+      $('#go-online').textContent = started ? 'Save name' : 'Go online';
+    }
+    function showHome() {
+      $('#signin').hidden = true; $('#online-home').hidden = false;
+      $('#my-name').textContent = myName;
+      renderPeople();
+    }
+
+    async function goOnline(raw) {
+      const name = String(raw || '').trim().replace(/\s+/g, ' ').slice(0, 20);
+      if (!name) { msg('Type your name first.'); $('#name-input').focus(); return; }
+      myName = name;
+      try { localStorage.setItem('c4g-name', name); } catch (e) {}
+      if (started) { statusRef.update({ name }).catch(() => {}); msg(''); showHome(); return; }
+      msg('Connecting…'); $('#go-online').disabled = true;
+      try {
+        await withTimeout(loadFirebase(), 12000);
+        if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+        auth = firebase.auth(); rdb = firebase.database(); fs = firebase.firestore();
+        if (!auth.currentUser) await withTimeout(auth.signInAnonymously(), 12000);
+        me = auth.currentUser.uid;
+        wentOffline = false;
+        rdb.goOnline();
+        statusRef = rdb.ref('status/' + me);
+        await withTimeout(statusRef.set(presence(true)), 12000);
+        rdb.ref('.info/connected').on('value', onConn);
+        listenPeople(); listenInvites();
+        started = true; msg(''); showHome(); Snd.tap();
+      } catch (e) { msg(explain(e)); }
+      finally { $('#go-online').disabled = false; }
+    }
+    async function goOffline() {
+      wentOffline = true;
+      if (sent) await cancelInvite(false);
+      try { rdb.ref('.info/connected').off('value', onConn); } catch (e) {}
+      if (peopleQ) peopleQ.off();
+      if (invitesUnsub) invitesUnsub();
+      try { await statusRef.update({ online: false, playing: false, lastSeen: firebase.database.ServerValue.TIMESTAMP }); } catch (e) {}
+      try { rdb.goOffline(); } catch (e) {}
+      started = false; people = {};
+      showSignin(); msg('You are offline. Nobody can see you.');
+    }
+
+    function listenPeople() {
+      peopleQ = rdb.ref('status').orderByChild('online').equalTo(true);
+      peopleQ.on('value', snap => {
+        people = {};
+        snap.forEach(ch => {
+          if (ch.key === me) return;
+          const v = ch.val() || {};
+          people[ch.key] = { name: String(v.name || 'Player').slice(0, 20), playing: !!v.playing };
+        });
+        renderPeople(); checkOpp(); updateBtns();
+      }, e => toast(explain(e)));
+    }
+    function renderPeople() {
+      const ul = $('#people');
+      if (!ul) return;
+      ul.textContent = '';
+      const ids = Object.keys(people).sort((a, b) => people[a].name.localeCompare(people[b].name));
+      if (!ids.length) {
+        const li = document.createElement('li'); li.className = 'empty';
+        li.textContent = 'Nobody else is online right now. Ask a friend to open the app and go online.';
+        ul.appendChild(li); return;
+      }
+      for (const id of ids) {
+        const p = people[id];
+        const li = document.createElement('li');
+        const dot = document.createElement('span'); dot.className = 'live' + (p.playing ? ' busy' : '');
+        const who = document.createElement('div'); who.className = 'who';
+        const b = document.createElement('b'); b.textContent = p.name;
+        const sm = document.createElement('small');
+        sm.textContent = sent && sent.to === id ? 'Invite sent. Waiting…' : p.playing ? 'In a game' : 'Ready to play';
+        who.append(b, sm);
+        const btn = document.createElement('button'); btn.type = 'button';
+        if (sent && sent.to === id) { btn.className = 'btn'; btn.textContent = 'Cancel'; btn.onclick = () => cancelInvite(false); }
+        else { btn.className = 'btn primary'; btn.textContent = 'Invite'; btn.disabled = p.playing || !!sent; btn.onclick = () => sendInvite(id); }
+        li.append(dot, who, btn); ul.appendChild(li);
+      }
+    }
+
+    async function sendInvite(uid) {
+      if (sent || !started) return;
+      const toName = (people[uid] && people[uid].name) || (OG && OG.opp === uid ? OG.oppName : 'Player');
+      try {
+        const ref = await fs.collection('invites').add({ from: me, fromName: myName, to: uid, toName, status: 'pending', createdAt: ts() });
+        sent = { id: ref.id, to: uid, toName, ref };
+        Snd.tap(); toast(`Invite sent to ${toName}.`);
+        sentUnsub = ref.onSnapshot(s => {
+          const d = s.data(); if (!d || !sent || sent.id !== s.id) return;
+          if (d.status === 'accepted' && d.gameId) { clearSent(); enterGame(d.gameId); }
+          else if (d.status === 'declined') { clearSent(); toast(`${toName} said no thanks.`); }
+          else if (d.status === 'cancelled') clearSent();
+        });
+        sentTimer = setTimeout(() => cancelInvite(true), 45000);
+        renderPeople(); updateBtns();
+      } catch (e) { toast(explain(e)); }
+    }
+    function clearSent() {
+      if (sentUnsub) sentUnsub(); sentUnsub = null;
+      clearTimeout(sentTimer); sent = null;
+      renderPeople(); updateBtns();
+    }
+    async function cancelInvite(timedOut) {
+      if (!sent) return;
+      const s = sent;
+      clearSent();
+      try { await s.ref.update({ status: 'cancelled', updatedAt: ts() }); } catch (e) {}
+      toast(timedOut ? `${s.toName} didn't answer.` : 'Invite cancelled.');
+    }
+
+    function listenInvites() {
+      invitesUnsub = fs.collection('invites').where('to', '==', me).where('status', '==', 'pending').onSnapshot(qs => {
+        const list = [];
+        qs.forEach(d => { const v = d.data(); const t = v.createdAt && v.createdAt.toMillis ? v.createdAt.toMillis() : Date.now(); if (Date.now() - t < 60000) list.push({ id: d.id, ...v }); });
+        handleIncoming(list);
+      }, e => toast(explain(e)));
+    }
+    function handleIncoming(list) {
+      if (incoming && !list.find(i => i.id === incoming.id)) { closeModal(); toast(`${incoming.fromName} cancelled the invite.`); incoming = null; }
+      if (incoming) return;
+      if (OG && !S.over) return; // busy in a game
+      const inv = list.find(i => !seenInvites.has(i.id));
+      if (!inv) return;
+      seenInvites.add(inv.id);
+      incoming = inv;
+      Snd.tone(988, .15, 'sine', .15); Snd.tone(1319, .3, 'sine', .15, .15);
+      const m = $('#modal'); m.textContent = '';
+      const card = document.createElement('div'); card.className = 'card'; card.setAttribute('role', 'dialog');
+      const av = document.createElement('div'); av.className = 'avatar'; av.textContent = (inv.fromName || '?').trim().charAt(0).toUpperCase();
+      const h = document.createElement('h2'); h.textContent = `${inv.fromName} wants to play!`; h.style.fontSize = '24px';
+      const p = document.createElement('p'); p.textContent = `${inv.fromName} will go first with yellow. You are red.`;
+      const row = document.createElement('div'); row.className = 'row';
+      const yes = document.createElement('button'); yes.type = 'button'; yes.className = 'btn primary'; yes.textContent = 'Play';
+      const no = document.createElement('button'); no.type = 'button'; no.className = 'btn'; no.textContent = 'No thanks';
+      yes.onclick = () => accept(inv); no.onclick = () => decline(inv);
+      row.append(yes, no); card.append(av, h, p, row); m.appendChild(card); m.hidden = false; yes.focus();
+    }
+    function closeModal() { $('#modal').hidden = true; $('#modal').textContent = ''; }
+    async function decline(inv) {
+      closeModal(); incoming = null;
+      try { await fs.collection('invites').doc(inv.id).update({ status: 'declined', updatedAt: ts() }); } catch (e) {}
+    }
+    async function accept(inv) {
+      closeModal(); incoming = null;
+      if (sent) await cancelInvite(false);
+      try {
+        const g = fs.collection('games').doc();
+        const batch = fs.batch();
+        batch.set(g, { players: [inv.from, me], names: { [inv.from]: inv.fromName, [me]: myName }, first: inv.from, turn: inv.from,
+          moves: [], status: 'playing', winner: null, leftBy: null, createdAt: ts(), updatedAt: ts() });
+        batch.update(fs.collection('invites').doc(inv.id), { status: 'accepted', gameId: g.id, updatedAt: ts() });
+        await batch.commit();
+        enterGame(g.id);
+      } catch (e) { toast(explain(e)); }
+    }
+
+    function resetBoard() {
+      S.moves = []; S.board.fill(0); S.h.fill(0);
+      S.over = false; S.result = null; S.thinking = false;
+      redraw();
+    }
+    function rebuild(mv) {
+      S.moves = []; S.board.fill(0); S.h.fill(0);
+      mv.forEach((c, i) => { S.board[c * H + S.h[c]] = i % 2 === 0 ? 1 : 2; S.h[c]++; S.moves.push(c); });
+      redraw();
+    }
+    function enterGame(id) {
+      if (gameUnsub) gameUnsub();
+      closeModal(); $('#result').hidden = true;
+      clearTimeout(oppGoneTimer);
+      MODE = 'online'; aiDirty = true; S.token++;
+      OG = { id, ref: fs.collection('games').doc(id), opp: null, oppName: 'Friend', ready: false };
+      setView('game');
+      resetBoard(); S.busy = true;
+      $('#opp-avatar').textContent = '?';
+      say('Starting the game…', 'flat'); update();
+      const myGame = OG;
+      chain = Promise.resolve();
+      gameUnsub = OG.ref.onSnapshot(s => {
+        const d = s.data(); if (!d) return;
+        chain = chain.then(() => sync(d, myGame)).catch(() => {});
+      }, e => toast(explain(e)));
+      setPlaying(true);
+    }
+    function turnTalk() {
+      if (!OG || S.over) return;
+      if (isHumanTurn()) say(S.moves.length < 2 ? 'Your turn! You are red. Tap a column.' : 'Your turn!', 'flat');
+      else say(`${OG.oppName} is thinking…`, 'thinking');
+    }
+    async function sync(d, game) {
+      if (OG !== game) return;
+      if (!OG.ready) {
+        OG.ready = true;
+        OG.opp = d.players.find(p => p !== me) || null;
+        OG.oppName = String((d.names && d.names[OG.opp]) || 'Friend').slice(0, 20);
+        S.human = d.first === me ? 1 : 2;
+        $('#opp-avatar').textContent = OG.oppName.trim().charAt(0).toUpperCase() || '?';
+        S.busy = false;
+      }
+      const mv = d.moves || [];
+      let diverged = false;
+      for (let i = 0; i < Math.min(S.moves.length, mv.length); i++) if (S.moves[i] !== mv[i]) diverged = true;
+      if (diverged) rebuild(mv);
+      while (S.moves.length < mv.length && OG === game && !S.over) {
+        S.busy = true; update();
+        await drop(mv[S.moves.length]);
+      }
+      if (OG !== game) return;
+      if (!S.over) S.busy = false;
+      if (d.status === 'left' && !S.over) {
+        S.over = true;
+        setPlaying(false);
+        if (d.leftBy !== me) {
+          say(`${OG.oppName} left the game.`, 'sad');
+          showCard(`${OG.oppName} left`, 'draw', 'The game ended early.', [
+            { label: 'Back to lobby', primary: true, fn: toLobby }
+          ]);
+        }
+      }
+      if (!S.over) turnTalk();
+      update();
+    }
+    async function sendMove(c, idx) {
+      if (!OG) return;
+      const won = S.result === 'you', draw = S.result === 'draw', game = OG;
+      try {
+        await fs.runTransaction(async tx => {
+          const s = await tx.get(game.ref); const d = s.data();
+          if (!d || d.status !== 'playing' || d.turn !== me || d.moves.length !== idx) throw { code: 'stale' };
+          tx.update(game.ref, { moves: d.moves.concat([c]), turn: game.opp, status: won ? 'won' : draw ? 'draw' : 'playing', winner: won ? me : null, updatedAt: ts() });
+        });
+        if (!S.over) turnTalk();
+      } catch (e) {
+        toast('That move did not go through. Fixing the board.');
+        try { const s = await game.ref.get(); if (OG === game) { S.over = false; rebuild(s.data().moves || []); turnTalk(); } } catch (e2) {}
+      }
+    }
+    async function leaveGame() {
+      if (!OG) return;
+      if (!S.over) {
+        try { await OG.ref.update({ status: 'left', leftBy: me, updatedAt: ts() }); } catch (e) {}
+      }
+      toLobby();
+    }
+    function toLobby() {
+      if (gameUnsub) gameUnsub(); gameUnsub = null;
+      clearTimeout(oppGoneTimer);
+      OG = null; S.token++; S.busy = false;
+      $('#result').hidden = true;
+      setPlaying(false);
+      setView('lobby'); open(); update();
+    }
+    function rematch() {
+      if (!OG || !OG.opp) return;
+      if (!people[OG.opp]) { toast(`${OG.oppName} is not online anymore.`); return; }
+      $('#result').hidden = true;
+      sendInvite(OG.opp);
+    }
+    function checkOpp() {
+      if (!OG || !OG.ready || S.over) { clearTimeout(oppGoneTimer); oppGoneTimer = null; return; }
+      if (people[OG.opp]) { clearTimeout(oppGoneTimer); oppGoneTimer = null; return; }
+      if (oppGoneTimer) return;
+      const game = OG;
+      oppGoneTimer = setTimeout(() => {
+        oppGoneTimer = null;
+        if (OG !== game || S.over || people[OG.opp]) return;
+        S.over = true; setPlaying(false);
+        say(`${OG.oppName} lost connection.`, 'sad');
+        showCard(`${OG.oppName} left`, 'draw', 'Their connection dropped, so the game ended.', [
+          { label: 'Back to lobby', primary: true, fn: toLobby }
+        ]);
+        update();
+      }, 15000);
+    }
+    function updateBtns() {
+      const lb = $('#leave-game'), rb = $('#rematch-btn');
+      if (!lb) return;
+      lb.textContent = OG && !S.over ? 'Leave game' : 'Back to lobby';
+      rb.disabled = !(OG && S.over && OG.opp && people[OG.opp] && !sent);
+      rb.textContent = sent && OG && sent.to === OG.opp ? 'Waiting…' : 'Rematch';
+    }
+
+    $('#signin').addEventListener('submit', e => { e.preventDefault(); Snd.init(); goOnline($('#name-input').value); });
+    $('#rename').addEventListener('click', () => { msg(''); showSignin(); $('#name-input').focus(); });
+    $('#go-offline').addEventListener('click', goOffline);
+    $('#leave-game').addEventListener('click', leaveGame);
+    $('#rematch-btn').addEventListener('click', rematch);
+
+    return { open, sendMove, setPlaying, rematch, toLobby, updateBtns, inGame: () => !!OG };
+  })();
+
+  $('#tab-online').addEventListener('click', () => {
+    Snd.init(); Snd.tap();
+    if (Online.inGame()) { setView('game'); return; }
+    S.token++; S.thinking = false; S.busy = false;
+    setView('lobby'); Online.open();
+  });
+  $('#tab-ai').addEventListener('click', () => {
+    Snd.init(); Snd.tap();
+    if (Online.inGame() && !S.over) { toast('Leave your online game first.'); return; }
+    if (Online.inGame()) Online.toLobby();
+    MODE = 'ai'; S.human = S.first === 'you' ? 1 : 2;
+    setView('ai');
+    if (aiDirty) { aiDirty = false; S.moves = []; S.board.fill(0); S.h.fill(0); S.over = false; S.result = null; redraw(); say('Welcome back! Your turn against Robo.', 'flat'); update(); if (S.first === 'ai') aiTurn(); return; }
+    update();
+    if (!S.over && !isHumanTurn()) aiTurn();
+  });
 
   // ---------- controls ----------
   document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+    Snd.init(); Snd.tap();
     S[b.dataset.k] = b.dataset.v; save();
     if (b.dataset.k === 'first') {
       const humanMoves = S.moves.filter((c, i) => (i % 2 === 0 ? 1 : 2) === S.human).length;
@@ -624,23 +1298,24 @@ function engineFactory() {
     }
     update();
   }));
-  $('#new-game').addEventListener('click', newGame);
+  $('#new-game').addEventListener('click', () => { Snd.init(); newGame(); });
   $('#undo').addEventListener('click', undo);
+  $('#sound').addEventListener('click', () => { Snd.init(); soundOn = !soundOn; save(); update(); Snd.tap(); });
   document.addEventListener('keydown', e => {
-    if (e.target.closest && e.target.closest('input,textarea')) return;
+    if (e.target && e.target.closest && e.target.closest('input,textarea')) return;
     const n = parseInt(e.key, 10);
     if (n >= 1 && n <= 7) humanMove(n - 1);
   });
 
-  // ---------- PWA ----------
-  let deferred = null;
-  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; $('#install').hidden = false; });
-  $('#install').addEventListener('click', async () => { if (!deferred) return; deferred.prompt(); try { await deferred.userChoice; } catch (e) {} deferred = null; $('#install').hidden = true; });
+  // ---------- installable app ----------
   if ('serviceWorker' in navigator && document.querySelector('link[rel="manifest"]')) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 
-  newGame();
+  S.human = S.first === 'you' ? 1 : 2;
+  setView('ai');
+  update();
+  if (S.first === 'ai') aiTurn();
 })();
 </script>
 

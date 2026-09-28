@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function validName(n) {
+      return n is string && n.size() > 0 && n.size() <= 20;
+    }
+
+    // Game invites: only the sender and the receiver can see one.
+    match /invites/{inviteId} {
+      allow read: if signedIn()
+        && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['from', 'fromName', 'to', 'toName', 'status', 'createdAt'])
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.to is string
+        && request.resource.data.to != request.auth.uid
+        && validName(request.resource.data.fromName)
+        && validName(request.resource.data.toName)
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time;
+
+      // Receiver can accept or decline. Sender can cancel.
+      allow update: if signedIn()
+        && resource.data.status == 'pending'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'gameId', 'updatedAt'])
+        && (
+          (request.auth.uid == resource.data.to && request.resource.data.status in ['accepted', 'declined'])
+          || (request.auth.uid == resource.data.from && request.resource.data.status == 'cancelled')
+        );
+
+      allow delete: if false;
+    }
+
+    // Games: only the two players can see or change a game.
+    match /games/{gameId} {
+      function isPlayer() {
+        return signedIn() && request.auth.uid in resource.data.players;
+      }
+      function newMoves() {
+        return request.resource.data.moves;
+      }
+      function oldMoves() {
+        return resource.data.moves;
+      }
+      // A valid move: it's your turn, exactly one column (0-6) is added,
+      // earlier moves are unchanged, and the turn passes to the other player.
+      function isMove() {
+        return resource.data.status == 'playing'
+          && resource.data.turn == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['moves', 'turn', 'status', 'winner', 'updatedAt'])
+          && newMoves().size() == oldMoves().size() + 1
+          && newMoves().size() <= 42
+          && (oldMoves().size() == 0 || newMoves()[0:oldMoves().size()] == oldMoves())
+          && newMoves()[oldMoves().size()] is int
+          && newMoves()[oldMoves().size()] >= 0
+          && newMoves()[oldMoves().size()] <= 6
+          && request.resource.data.turn in resource.data.players
+          && request.resource.data.turn != request.auth.uid
+          && request.resource.data.status in ['playing', 'won', 'draw']
+          && (request.resource.data.status != 'won' || request.resource.data.winner == request.auth.uid);
+      }
+      function isLeave() {
+        return resource.data.status == 'playing'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'leftBy', 'updatedAt'])
+          && request.resource.data.status == 'left'
+          && request.resource.data.leftBy == request.auth.uid;
+      }
+
+      allow read: if isPlayer();
+
+      allow create: if signedIn()
+        && request.resource.data.players is list
+        && request.resource.data.players.size() == 2
+        && request.auth.uid in request.resource.data.players
+        && request.resource.data.players[0] != request.resource.data.players[1]
+        && request.resource.data.first in request.resource.data.players
+        && request.resource.data.turn == request.resource.data.first
+        && request.resource.data.moves.size() == 0
+        && request.resource.data.status == 'playing';
+
+      allow update: if isPlayer() && (isMove() || isLeave());
+      allow delete: if false;
+    }
+
+    // Everything else is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
