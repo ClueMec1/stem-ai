@@ -15,8 +15,8 @@ FIREBASE SETUP (one time)
   3. Firestore Database > Rules > paste firestore.rules > Publish.
   4. Realtime Database > Rules > paste database.rules.json > Publish.
   5. If your Realtime Database URL is not https://project-3333600848385438143-default-rtdb.firebaseio.com
-     put yours in js/online.js (databaseURL).
+     put yours in index.html (databaseURL).
 
 HOSTING
   Upload everything except the .rules files and this README to an HTTPS host
-  (Netlify Drop, GitHub Pages, Firebase Hosting). Keep the css/ and js/ folders.
+  (Netlify Drop, GitHub Pages, Firebase Hosting). Only 5 files: index.html, sw.js, manifest.webmanifest, icon-192.png, icon-512.png.
