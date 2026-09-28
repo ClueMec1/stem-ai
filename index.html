@@ -952,12 +952,18 @@ function engineFactory() {
     }
     function msg(t) { $('#signin-msg').textContent = t; }
     function explain(e) {
-      const c = String((e && (e.code || e.message)) || '');
-      if (/operation-not-allowed|admin-restricted/.test(c)) return 'Anonymous sign-in is turned off. In Firebase, open Authentication > Sign-in method and turn on Anonymous.';
-      if (/unauthorized-domain|requests-from-referer/.test(c)) return 'This website is not allowed yet. Add it in Firebase under Authentication > Settings > Authorized domains.';
-      if (/permission|PERMISSION/.test(c)) return 'Firebase blocked the request. Check that both sets of rules are published.';
-      if (/network|timeout|unavailable/.test(c)) return 'Could not reach the server. Check your internet and try again.';
-      return 'Could not go online. Please try again.';
+      const c = String((e && (e.code || '')) + ' ' + ((e && e.message) || ''));
+      let t = 'Could not go online.';
+      if (/configuration-not-found/.test(c)) t = 'Sign-in is not set up yet. In Firebase, open Authentication, tap Get started, then turn on Anonymous.';
+      else if (/operation-not-allowed|admin-restricted/.test(c)) t = 'Anonymous sign-in is turned off. In Firebase, open Authentication > Sign-in method and turn on Anonymous.';
+      else if (/unauthorized-domain|requests-from-referer|referer/i.test(c)) t = 'This website is not allowed yet. Add it in Firebase under Authentication > Settings > Authorized domains.';
+      else if (/api-key/i.test(c)) t = 'Firebase says the API key is not valid. Check the apiKey in index.html.';
+      else if (/database url|firebaseio|firebasedatabase|different region|Cannot parse/i.test(c)) t = 'The Realtime Database address is wrong. Copy the URL from Realtime Database > Data and paste it as databaseURL in index.html.';
+      else if (/permission/i.test(c)) t = 'Firebase blocked the request. Check that both sets of rules are published.';
+      else if (/timeout/.test(c)) t = 'The server did not answer. Make sure the Realtime Database is created and its URL in index.html is right.';
+      else if (/network/i.test(c)) t = 'Could not reach the server. Check your internet and try again.';
+      const detail = c.trim().slice(0, 160);
+      return detail ? `${t} (Details: ${detail})` : t;
     }
     function presence(online) {
       return { name: myName, online, playing: !!(OG && !S.over), lastSeen: firebase.database.ServerValue.TIMESTAMP };
@@ -994,20 +1000,24 @@ function engineFactory() {
       try { localStorage.setItem('c4g-name', name); } catch (e) {}
       if (started) { statusRef.update({ name }).catch(() => {}); msg(''); showHome(); return; }
       msg('Connecting…'); $('#go-online').disabled = true;
+      let step = 'loading';
       try {
         await withTimeout(loadFirebase(), 12000);
+        step = 'sign-in';
         if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
         auth = firebase.auth(); rdb = firebase.database(); fs = firebase.firestore();
         if (!auth.currentUser) await withTimeout(auth.signInAnonymously(), 12000);
         me = auth.currentUser.uid;
+        step = 'realtime database';
         wentOffline = false;
         rdb.goOnline();
         statusRef = rdb.ref('status/' + me);
         await withTimeout(statusRef.set(presence(true)), 12000);
         rdb.ref('.info/connected').on('value', onConn);
+        step = 'firestore';
         listenPeople(); listenInvites();
         started = true; msg(''); showHome(); Snd.tap();
-      } catch (e) { msg(explain(e)); }
+      } catch (e) { msg(explain(e) + ' [step: ' + step + ']'); try { console.error(e); } catch (x) {} }
       finally { $('#go-online').disabled = false; }
     }
     async function goOffline() {
