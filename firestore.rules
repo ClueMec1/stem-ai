@@ -1,0 +1,127 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function validName(n) { return n is string && n.size() > 0 && n.size() <= 20; }
+    function validBlitz(b) { return b in [0, 5, 10]; }
+
+    // Challenges: only the sender and receiver can see one.
+    match /invites/{inviteId} {
+      allow read: if signedIn()
+        && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['from', 'fromName', 'to', 'toName', 'blitz', 'status', 'createdAt'])
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.to is string
+        && request.resource.data.to != request.auth.uid
+        && validName(request.resource.data.fromName)
+        && validName(request.resource.data.toName)
+        && validBlitz(request.resource.data.blitz)
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time;
+      allow update: if signedIn()
+        && resource.data.status == 'pending'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'gameId', 'updatedAt'])
+        && ((request.auth.uid == resource.data.to && request.resource.data.status in ['accepted', 'declined'])
+          || (request.auth.uid == resource.data.from && request.resource.data.status == 'cancelled'));
+      allow delete: if false;
+    }
+
+    // Private rooms: anyone signed in who knows the code can read and join.
+    match /rooms/{code} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && code.matches('^[A-Z0-9]{5}$')
+        && request.resource.data.keys().hasOnly(['host', 'hostName', 'blitz', 'status', 'guest', 'guestName', 'gameId', 'createdAt'])
+        && request.resource.data.host == request.auth.uid
+        && validName(request.resource.data.hostName)
+        && validBlitz(request.resource.data.blitz)
+        && request.resource.data.status == 'open';
+      // Re-opening an old code the same person or someone else left closed/joined.
+      allow update: if signedIn() && (
+        // guest joins an open room
+        (resource.data.status == 'open'
+          && resource.data.host != request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'guest', 'guestName', 'gameId'])
+          && request.resource.data.status == 'joined'
+          && request.resource.data.guest == request.auth.uid
+          && validName(request.resource.data.guestName)
+          && request.resource.data.gameId is string)
+        // host closes their open room
+        || (resource.data.status == 'open'
+          && resource.data.host == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          && request.resource.data.status == 'closed')
+        // anyone recycles a finished code as a brand new room they host
+        || (resource.data.status in ['closed', 'joined']
+          && request.resource.data.keys().hasOnly(['host', 'hostName', 'blitz', 'status', 'guest', 'guestName', 'gameId', 'createdAt'])
+          && request.resource.data.host == request.auth.uid
+          && validName(request.resource.data.hostName)
+          && validBlitz(request.resource.data.blitz)
+          && request.resource.data.status == 'open')
+      );
+      allow delete: if false;
+    }
+
+    // Games: anyone signed in can watch; only the two players can change a game.
+    match /games/{gameId} {
+      function isPlayer() { return signedIn() && request.auth.uid in resource.data.players; }
+      function newMoves() { return request.resource.data.moves; }
+      function oldMoves() { return resource.data.moves; }
+      function isMove() {
+        return resource.data.status == 'playing'
+          && resource.data.turn == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['moves', 'turn', 'status', 'winner', 'updatedAt'])
+          && newMoves().size() == oldMoves().size() + 1
+          && newMoves().size() <= 42
+          && (oldMoves().size() == 0 || newMoves()[0:oldMoves().size()] == oldMoves())
+          && newMoves()[oldMoves().size()] is int
+          && newMoves()[oldMoves().size()] >= 0
+          && newMoves()[oldMoves().size()] <= 6
+          && request.resource.data.turn in resource.data.players
+          && request.resource.data.turn != request.auth.uid
+          && request.resource.data.status in ['playing', 'won', 'draw']
+          && (request.resource.data.status != 'won' || request.resource.data.winner == request.auth.uid);
+      }
+      function isLeave() {
+        return resource.data.status == 'playing'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'leftBy', 'updatedAt'])
+          && request.resource.data.status == 'left'
+          && request.resource.data.leftBy == request.auth.uid;
+      }
+
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.players is list
+        && request.resource.data.players.size() == 2
+        && request.auth.uid in request.resource.data.players
+        && request.resource.data.players[0] != request.resource.data.players[1]
+        && request.resource.data.first == request.resource.data.players[0]
+        && request.resource.data.turn == request.resource.data.first
+        && request.resource.data.moves.size() == 0
+        && request.resource.data.status == 'playing'
+        && validBlitz(request.resource.data.blitz);
+      allow update: if isPlayer() && (isMove() || isLeave());
+      allow delete: if false;
+
+      // Quick chat: players send phrases and emoji, spectators send emoji only.
+      match /chat/{msgId} {
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && request.resource.data.keys().hasOnly(['uid', 'name', 'k', 'i', 'at'])
+          && request.resource.data.uid == request.auth.uid
+          && validName(request.resource.data.name)
+          && request.resource.data.k in ['e', 'p']
+          && request.resource.data.i is int
+          && request.resource.data.i >= 0 && request.resource.data.i <= 7
+          && request.resource.data.at == request.time
+          && (request.resource.data.k == 'e'
+            || request.auth.uid in get(/databases/$(database)/documents/games/$(gameId)).data.players);
+        allow update, delete: if false;
+      }
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}

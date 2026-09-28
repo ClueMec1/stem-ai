@@ -1,0 +1,27 @@
+{
+  "rules": {
+    "status": {
+      ".read": "auth != null",
+      ".indexOn": ["online"],
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['name', 'online', 'lastSeen'])",
+        "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
+        "online": { ".validate": "newData.isBoolean()" },
+        "state": { ".validate": "newData.isString() && (newData.val() === 'lobby' || newData.val() === 'match' || newData.val() === 'idle')" },
+        "gameId": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "lastSeen": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
+    "watching": {
+      "$gameId": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20"
+        }
+      }
+    }
+  }
+}

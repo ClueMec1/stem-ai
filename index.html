@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en" data-skin="neon">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#07060F">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Connect 4">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<!--ARTIFACT-START-->
+<title>Connect Four Gauntlet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;800&family=Nunito+Sans:wght@400;700;800&family=Press+Start+2P&family=VT323&display=swap">
+<link rel="stylesheet" href="css/app.css">
+<!--HEAD-END-->
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <button type="button" class="logo" id="go-home" aria-label="Home">
+      <span class="logo-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span class="logo-text display">Connect 4</span>
+    </button>
+    <nav class="topnav" aria-label="Main">
+      <button type="button" data-nav="home">Play</button>
+      <button type="button" data-nav="online">Online</button>
+      <button type="button" data-nav="stats">Stats</button>
+    </nav>
+    <div class="top-actions">
+      <button type="button" class="icon-btn" id="sound-btn" aria-label="Sound" aria-pressed="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path class="on" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/><path class="off" d="m16 9 6 6m0-6-6 6"/></svg>
+      </button>
+      <button type="button" class="icon-btn" id="settings-btn" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- HOME -->
+    <section class="view" id="view-home">
+      <div class="home">
+        <div class="hero">
+          <h1 class="display">Four in a row.<br><span class="a">Zero</span> <span class="b">mercy.</span></h1>
+          <p>Face NEUMAI, an engine that searches millions of positions every move. Pass the phone to a friend, or challenge players online.</p>
+        </div>
+        <button type="button" class="btn primary" id="resume-btn" hidden>Return to your match</button>
+        <div class="modes">
+          <button type="button" class="mode glass" id="mode-ai">
+            <span class="mode-art" aria-hidden="true"><i class="a"></i><i class="b"></i><i class="a"></i><i class="b"></i></span>
+            <span class="tag">Solo</span>
+            <h2 class="display">Vs NEUMAI</h2>
+            <p>Three difficulty tiers, three personalities, and a live feed of what the engine is calculating.</p>
+          </button>
+          <button type="button" class="mode glass" id="mode-local">
+            <span class="mode-art" aria-hidden="true"><i class="a"></i><i class="b"></i><i class="b"></i><i class="a"></i></span>
+            <span class="tag">Same device</span>
+            <h2 class="display">Pass &amp; Play</h2>
+            <p>Two players, one screen. Add a turn timer for blitz games.</p>
+          </button>
+          <button type="button" class="mode glass" id="mode-online">
+            <span class="mode-art" aria-hidden="true"><i class="b"></i><i class="a"></i><i class="b"></i><i class="a"></i></span>
+            <span class="tag">Online</span>
+            <h2 class="display">Online Arena</h2>
+            <p>See who's online, challenge them, share a room code, chat, or watch a match live.</p>
+          </button>
+        </div>
+        <div class="quick" id="quick"></div>
+      </div>
+    </section>
+
+    <!-- GAME -->
+    <section class="view fixed" id="view-game" hidden>
+      <div class="game">
+        <div class="game-main">
+          <div class="hud">
+            <div class="plate glass" id="plate-1">
+              <span class="chip p1" aria-hidden="true"></span>
+              <div class="who"><b id="name-1">Player 1</b><small id="sub-1"></small></div>
+              <span class="clock" id="clock-1"></span>
+              <div class="timer" id="timer-1" hidden><i></i></div>
+            </div>
+            <div class="center-status">
+              <span class="vs display">VS</span>
+              <span class="watchers" id="watchers" hidden></span>
+            </div>
+            <div class="plate glass right" id="plate-2">
+              <span class="chip p2" aria-hidden="true"></span>
+              <div class="who"><b id="name-2">Player 2</b><small id="sub-2"></small></div>
+              <span class="clock" id="clock-2"></span>
+              <div class="timer" id="timer-2" hidden><i></i></div>
+            </div>
+          </div>
+          <p class="sr-only" id="status" aria-live="polite"></p>
+
+          <div class="board-area" id="board-area">
+            <div class="stage" id="stage">
+              <div class="board-glow" aria-hidden="true"></div>
+              <div class="layer discs" id="discs"></div>
+              <svg class="layer face" viewBox="0 0 740 770" aria-hidden="true">
+                <defs>
+                  <linearGradient id="bg-board" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" style="stop-color:var(--board-a)"/><stop offset="1" style="stop-color:var(--board-b)"/>
+                  </linearGradient>
+                  <pattern id="grain" width="740" height="64" patternUnits="userSpaceOnUse">
+                    <path d="M0 10 Q185 0 370 12 T740 8 M0 30 Q200 22 370 34 T740 28 M0 50 Q185 44 370 54 T740 50" stroke="#1a0c04" stroke-opacity=".55" fill="none" stroke-width="3"/>
+                  </pattern>
+                </defs>
+                <path d="M40 770 L70 740 L120 740 L150 770 Z M590 770 L620 740 L670 740 L700 770 Z" style="fill:var(--board-edge)"/>
+                <rect x="0" y="716" width="740" height="36" rx="18" style="fill:var(--board-edge)"/>
+                <g class="frame">
+                  <path id="face-path" fill-rule="evenodd" fill="url(#bg-board)"/>
+                </g>
+                <path id="tex-path" fill-rule="evenodd" fill="url(#grain)" style="opacity:var(--tex-opacity)"/>
+                <g id="rings" fill="none" style="stroke:var(--hole-ring)" stroke-width="5"></g>
+              </svg>
+              <svg class="layer lines" id="lines" viewBox="0 0 740 770" aria-hidden="true"></svg>
+              <div class="layer hits" id="hits"></div>
+              <div class="result" id="result" hidden></div>
+            </div>
+          </div>
+
+          <div class="action-bar" id="action-bar">
+            <button type="button" class="btn" id="hint-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.4 1 1.1 1 1.8V16h5v-.3c0-.7.4-1.4 1-1.8A6 6 0 0 0 12 3z"/></svg>
+              <span class="t">Hint</span><span class="count" id="hint-count">3</span>
+            </button>
+            <button type="button" class="btn" id="undo-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+              <span class="t">Undo</span><span class="count" id="undo-count">3</span>
+            </button>
+            <button type="button" class="btn" id="panel-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"/></svg>
+              <span class="t" id="panel-btn-label">Feed</span>
+            </button>
+            <button type="button" class="btn" id="menu-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18 9 12l6-6"/></svg>
+              <span class="t">Leave</span>
+            </button>
+          </div>
+
+          <div class="review-bar" id="review-bar" hidden>
+            <p class="review-note" id="review-note"></p>
+            <div class="chart" id="eval-chart"></div>
+            <div class="scrub">
+              <button type="button" class="btn" id="rv-first" aria-label="First move">|&lt;</button>
+              <button type="button" class="btn" id="rv-prev" aria-label="Previous move">&lt;</button>
+              <input type="range" id="rv-range" min="0" max="0" value="0" aria-label="Move">
+              <button type="button" class="btn" id="rv-next" aria-label="Next move">&gt;</button>
+              <button type="button" class="btn" id="rv-last" aria-label="Last move">&gt;|</button>
+            </div>
+            <div class="row">
+              <button type="button" class="btn" id="rv-panel" style="flex:1">All moves</button>
+              <button type="button" class="btn primary" id="rv-exit" style="flex:1">Done</button>
+            </div>
+          </div>
+        </div>
+
+        <aside class="side glass" id="side" aria-label="Match panel">
+          <div class="grabber" id="side-grabber"></div>
+          <div class="side-tabs" role="tablist">
+            <button type="button" role="tab" id="tab-feed" data-tab="feed">Neural Feed</button>
+            <button type="button" role="tab" id="tab-chat" data-tab="chat">Chat</button>
+            <button type="button" role="tab" id="tab-moves" data-tab="moves">Moves</button>
+          </div>
+          <div class="side-body" id="pane-feed"></div>
+          <div class="side-body" id="pane-chat" hidden></div>
+          <div class="side-body" id="pane-moves" hidden></div>
+          <div class="side-foot" id="chat-foot" hidden>
+            <div class="react-tray" id="react-tray"></div>
+            <div class="phrases" id="phrases"></div>
+          </div>
+        </aside>
+        <div class="drawer-wrap" id="side-backdrop" hidden></div>
+      </div>
+    </section>
+
+    <!-- ONLINE -->
+    <section class="view" id="view-online" hidden>
+      <div class="lobby">
+        <div class="panel glass">
+          <div id="lobby-na" hidden style="display:grid;gap:10px">
+            <h2 class="display">Online Arena</h2>
+            <p class="muted">Online play works in the installed app. This preview inside Claude blocks internet connections, so here you can play NEUMAI or Pass &amp; Play.</p>
+          </div>
+          <form id="signin" hidden style="display:grid;gap:12px">
+            <h2 class="display">Pick a player name</h2>
+            <p class="muted">Other players only see this name.</p>
+            <div class="row">
+              <input class="input" id="name-input" maxlength="20" autocomplete="nickname" placeholder="Your name" aria-label="Your name">
+              <button type="submit" class="btn primary" id="go-online">Go online</button>
+            </div>
+            <p class="hint" id="signin-msg" aria-live="polite"></p>
+          </form>
+          <div id="online-home" hidden style="display:grid;gap:12px">
+            <div class="me-row">
+              <span class="pill" id="my-pill"><i></i>In lobby</span>
+              <div class="grow"><b id="my-name"></b></div>
+              <button type="button" class="linkbtn" id="rename">Change name</button>
+              <button type="button" class="linkbtn" id="go-offline">Go offline</button>
+            </div>
+            <h2 class="display">Players online</h2>
+            <ul class="people" id="people"></ul>
+          </div>
+        </div>
+        <div class="panel glass" id="rooms" hidden>
+          <h2 class="display">Match rooms</h2>
+          <p class="muted">Create a private room and share the code, or enter a friend's code.</p>
+          <div id="room-host" hidden style="display:grid;gap:8px">
+            <div class="code-big display" id="room-code">-----</div>
+            <p class="hint" style="text-align:center">Waiting for your friend to join…</p>
+            <button type="button" class="btn" id="room-cancel">Close room</button>
+          </div>
+          <button type="button" class="btn primary" id="room-create">Create room</button>
+          <form class="row" id="join-form">
+            <input class="input" id="join-code" maxlength="5" autocomplete="off" autocapitalize="characters" placeholder="Room code" aria-label="Room code">
+            <button type="submit" class="btn">Join</button>
+          </form>
+          <div class="field">
+            <span class="label" id="lbl-oblitz">Timer for matches you start</span>
+            <div class="seg" role="group" aria-labelledby="lbl-oblitz" id="oblitz"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STATS -->
+    <section class="view" id="view-stats" hidden>
+      <div class="stats" id="stats"></div>
+    </section>
+  </main>
+
+  <nav class="bottomnav" aria-label="Main">
+    <button type="button" data-nav="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><circle cx="8" cy="16" r="3"/><circle cx="16" cy="16" r="3"/></svg>Play</button>
+    <button type="button" data-nav="online"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>Online</button>
+    <button type="button" data-nav="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Stats</button>
+    <button type="button" data-nav="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Settings</button>
+  </nav>
+</div>
+
+<div class="modal sheet-wrap" id="sheet" hidden><div class="sheet" id="sheet-body" role="dialog" aria-modal="true"></div></div>
+<div class="modal" id="invite" hidden></div>
+<div class="toast" id="toast" role="status" hidden></div>
+<canvas id="confetti" hidden></canvas>
+
+<script src="js/engine.js"></script>
+<script src="js/app.js"></script>
+<script src="js/online.js"></script>
+<!--ARTIFACT-END-->
+</body>
+</html>

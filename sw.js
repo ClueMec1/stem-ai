@@ -1,5 +1,6 @@
-const CACHE = 'c4-gauntlet-v6';
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+const CACHE = 'c4x-v1';
+const SHELL = ['./', './index.html', './css/app.css', './js/engine.js', './js/app.js', './js/online.js',
+  './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });
@@ -10,14 +11,11 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (url.hostname.includes('gamesolver.org')) return; // live solver: always network
   const isFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
-  if (url.origin !== location.origin && !isFont) return;
-  e.respondWith(caches.match(req).then(hit => {
-    const net = fetch(req).then(res => {
-      if (res && (res.ok || res.type === 'opaque')) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
-      return res;
-    }).catch(() => hit || caches.match('./index.html'));
-    return hit || net;
-  }));
+  if (url.origin !== location.origin && !isFont) return; // Firebase, solver: always live
+  // App files: network first so updates arrive, cache as offline fallback.
+  e.respondWith(fetch(req).then(res => {
+    if (res && (res.ok || res.type === 'opaque')) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
+    return res;
+  }).catch(() => caches.match(req).then(hit => hit || caches.match('./index.html'))));
 });
