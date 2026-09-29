@@ -648,6 +648,9 @@ main { min-height: 0; position: relative; }
 .cm.full { visibility: hidden; }
 :root[data-skin="arcade"] .cm { border-radius: 0; font-size: 12px; }
 #coach-chips button { font-size: 12.5px; }
+.seg.wrap { grid-auto-flow: row; grid-template-columns: repeat(4, 1fr); }
+.seg.wrap button { font-size: 13.5px; padding: 9px 4px; }
+@media (max-width: 420px) { .seg.wrap { grid-template-columns: repeat(2, 1fr); } }
 
 </style>
 <!--HEAD-END-->
@@ -1182,7 +1185,12 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
   let history = store.get('c4x-history', []);
   const saveHistory = () => { history = history.slice(-250); store.set('c4x-history', history); };
 
+  // The four casual levels are new; Hard / Very hard / Impossible are unchanged.
   const TIERS = {
+    veryeasy: { label: 'Very easy', ms: 0, casual: true, note: 'Plays almost at random. Great for beginners and kids.' },
+    easy: { label: 'Easy', ms: 0, casual: true, note: 'Takes a win when it sees one and sometimes blocks yours.' },
+    medium: { label: 'Medium', ms: 60, casual: true, note: 'Thinks a little and makes regular mistakes.' },
+    littlehard: { label: 'A little hard', ms: 150, casual: true, note: 'Solid play with the occasional slip. A good step before Hard.' },
     tough: { label: 'Hard', ms: 350, note: 'Thinks for a moment. Beatable if you are sharp.' },
     brutal: { label: 'Very hard', ms: 1500, note: 'Looks much deeper and rarely slips.' },
     impossible: { label: 'Impossible', ms: 4000, note: 'Full power, plus a perfect online solver when the internet allows it.' }
@@ -1641,8 +1649,8 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
   function closeSheet() { sheet.hidden = true; sheetBody.textContent = ''; }
   sheet.addEventListener('click', e => { if (e.target === sheet) closeSheet(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (!sheet.hidden) closeSheet(); else closeSide(); } });
-  function segControl(options, value, onPick, labelledBy) {
-    const s = el('div', 'seg'); s.setAttribute('role', 'group'); if (labelledBy) s.setAttribute('aria-labelledby', labelledBy);
+  function segControl(options, value, onPick, labelledBy, extraClass) {
+    const s = el('div', 'seg' + (extraClass ? ' ' + extraClass : '')); s.setAttribute('role', 'group'); if (labelledBy) s.setAttribute('aria-labelledby', labelledBy);
     options.forEach(([v, label, dot]) => {
       const b = el('button'); b.type = 'button';
       if (dot) { const d = el('span', 'chip-dot ' + dot); b.appendChild(d); }
@@ -1679,7 +1687,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
   function setupAI() {
     openSheet(b => {
       b.appendChild(el('h2', 'display', 'Vs NEUMAI'));
-      const tf = field('Difficulty', id => segControl(Object.entries(TIERS).map(([k, t]) => [k, t.label]), prefs.tier, v => { prefs.tier = v; tf._hint.textContent = TIERS[v].note; }, id), TIERS[prefs.tier].note);
+      const tf = field('Difficulty', id => segControl(Object.entries(TIERS).map(([k, t]) => [k, t.label]), prefs.tier, v => { prefs.tier = v; tf._hint.textContent = TIERS[v].note; }, id, 'wrap'), TIERS[prefs.tier].note);
       b.appendChild(tf);
       const pf = field('Personality', id => segControl(Object.entries(PERSONAS).map(([k, p]) => [k, p.short]), prefs.persona, v => { prefs.persona = v; pf._hint.textContent = PERSONAS[v].note; }, id), PERSONAS[prefs.persona].note);
       b.appendChild(pf);
@@ -1744,7 +1752,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
       players: [null, first === 'me' ? me : ai, first === 'me' ? ai : me]
     });
     clearFeed('NEUMAI reports what it calculates here after every move.');
-    feed('INIT', `NEUMAI online. Tier: ${TIERS[G.tier].label}. Search budget: ${fmtMs(effectiveMs())} per move${TIERS[G.tier] === TIERS.impossible ? ', plus the perfect solver when reachable' : ''}.`);
+    feed('INIT', TIERS[G.tier].casual ? `NEUMAI online. Level: ${TIERS[G.tier].label}. ${TIERS[G.tier].note}` : `NEUMAI online. Tier: ${TIERS[G.tier].label}. Search budget: ${fmtMs(effectiveMs())} per move${TIERS[G.tier] === TIERS.impossible ? ', plus the perfect solver when reachable' : ''}.`);
     enterGame();
     const aiPiece = G.players[1].kind === 'ai' ? 1 : 2;
     if (G.players[1].kind === 'me') speak(personaLine('start'), aiPiece, 'NEUMAI');
@@ -1886,17 +1894,52 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     nextTurn();
   }
 
+  // ---------------- casual levels ----------------
+  const CASUAL = {
+    veryeasy: { win: .5, block: .15, safe: 0, searchMs: 0, mistake: 1, center: .3 },
+    easy: { win: .9, block: .6, safe: .3, searchMs: 0, mistake: 1, center: .8 },
+    medium: { win: 1, block: .9, safe: .7, searchMs: 60, mistake: .45, center: 1 },
+    littlehard: { win: 1, block: 1, safe: .95, searchMs: 150, mistake: .18, center: 1 }
+  };
+  async function casualMove(moves, tier) {
+    const cfg = CASUAL[tier], p = turnPiece(), o = 3 - p;
+    const legal = [0, 1, 2, 3, 4, 5, 6].filter(c => G.h[c] < H);
+    const wins = legal.filter(c => wouldWin(p, c));
+    if (wins.length && Math.random() < cfg.win) return { move: wins[0], casual: 'win' };
+    const blocks = legal.filter(c => wouldWin(o, c));
+    if (blocks.length && Math.random() < cfg.block) return { move: blocks[0], casual: 'block' };
+    let pool = legal;
+    if (Math.random() < cfg.safe) {
+      // avoid giving the opponent a win right on top
+      const safe = legal.filter(c => {
+        if (G.h[c] + 1 >= H) return true;
+        const b = G.board.slice(); b[c * H + G.h[c]] = p; b[c * H + G.h[c] + 1] = o;
+        return !findWin(b, c, G.h[c] + 1, o);
+      });
+      if (safe.length) pool = safe;
+    }
+    if (cfg.searchMs && Math.random() >= cfg.mistake) {
+      const res = await Engine.think(moves, cfg.searchMs);
+      if (pool.includes(res.move)) return Object.assign(res, { casual: 'search' });
+    }
+    const weights = pool.map(c => 1 + (3 - Math.abs(c - 3)) * cfg.center);
+    let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < pool.length; i++) { r -= weights[i]; if (r <= 0) return { move: pool[i], casual: 'free' }; }
+    return { move: pool[pool.length - 1], casual: 'free' };
+  }
+
   // ---------------- NEUMAI turn ----------------
   async function aiTurn() {
     const token = G.token, moves = G.moves.slice(), aip = turnPiece();
     G.thinking = true; renderActions();
-    const thinkingRow = feed('SCAN', 'Thinking…', '', `budget ${fmtMs(effectiveMs())}`);
+    const thinkingRow = feed('SCAN', 'Thinking…', '', TIERS[G.tier] && TIERS[G.tier].casual ? '' : `budget ${fmtMs(effectiveMs())}`);
     const bubbleTimer = setTimeout(() => { if (G.token === token && G.thinking) speak(personaLine('thinking'), aip, 'NEUMAI'); }, 900);
     const tick = setInterval(() => Snd.think(), 800);
     const t0 = performance.now();
     let res = null, solver = null;
     try {
-      if (moves.length === 0) res = { move: 3, book: true };
+      if (TIERS[G.tier] && TIERS[G.tier].casual) res = await casualMove(moves, G.tier);
+      else if (moves.length === 0) res = { move: 3, book: true };
       else if (G.tier === 'impossible' && !solverDown) {
         try { solver = await askSolver(moves); const b = bestFromSolver(solver, G.h); if (b.move >= 0) res = { move: b.move, solver: b.score }; } catch (e) { feed('NOTE', 'Online solver not reachable. Running on the built-in engine only.'); }
       }
@@ -1913,6 +1956,13 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
   }
   function reportAI(res, solver, ms, blocked, aip, ply) {
     let key = 'even', vars = {};
+    if (res.casual) {
+      const why = { win: 'Saw a win and took it.', block: `Blocked your four in column ${res.move + 1}.`, search: `Short search, ${res.depth || 0} moves deep.`, free: 'Picked a column without calculating.' }[res.casual];
+      feed('CASUAL', `${TIERS[G.tier].label} level: column ${res.move + 1}. ${why}`);
+      key = res.casual === 'block' ? 'block' : 'even';
+      if (Math.random() < .45 || key === 'block') speak(personaLine(key), aip, 'NEUMAI');
+      return;
+    }
     if (res.book) {
       feed('BOOK', 'Opening book: column 4. The center is the only first move that wins with perfect play.', 'best');
       key = 'open';
@@ -2258,7 +2308,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
       b.appendChild(el('h2', 'display', 'Grandmaster Dojo'));
       b.appendChild(el('p', 'muted', 'A sandbox for learning. Nothing here counts toward your stats. Undo as often as you like, ask NEUMAI about the board, and watch how traps are built.'));
       b.appendChild(field('Opponent', id => segControl([['ai', 'NEUMAI'], ['self', 'I move both colors']], prefs.dojoOpp, v => { prefs.dojoOpp = v; }, id)));
-      b.appendChild(field('NEUMAI strength', id => segControl(Object.entries(TIERS).map(([k, t]) => [k, t.label]), prefs.dojoTier, v => { prefs.dojoTier = v; }, id), 'Only affects the moves it plays. Coaching answers always use a full search.'));
+      b.appendChild(field('NEUMAI strength', id => segControl(Object.entries(TIERS).map(([k, t]) => [k, t.label]), prefs.dojoTier, v => { prefs.dojoTier = v; }, id, 'wrap'), 'Only affects the moves it plays. Coaching answers always use a full search.'));
       b.appendChild(field('Who goes first', id => segControl([['me', 'Me', 'p1'], ['ai', 'NEUMAI', 'p1']], prefs.dojoFirst, v => { prefs.dojoFirst = v; }, id), 'Ignored when you move both colors.'));
       const foot = el('div', 'foot');
       const cancel = el('button', 'btn', 'Cancel'); cancel.type = 'button'; cancel.onclick = closeSheet;
@@ -2787,7 +2837,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     const rows = el('div', 'opp-rows');
     const groups = new Map();
     rated.forEach(h => { const g = groups.get(h.oppKey) || { name: h.opp, w: 0, d: 0, l: 0 }; g.name = h.opp; g[h.result === 'win' ? 'w' : h.result === 'draw' ? 'd' : 'l']++; groups.set(h.oppKey, g); });
-    const order = ['ai:tough', 'ai:brutal', 'ai:impossible'];
+    const order = ['ai:veryeasy', 'ai:easy', 'ai:medium', 'ai:littlehard', 'ai:tough', 'ai:brutal', 'ai:impossible'];
     const keys = [...groups.keys()].sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99) || groups.get(b).w + groups.get(b).l + groups.get(b).d - (groups.get(a).w + groups.get(a).l + groups.get(a).d));
     keys.slice(0, 12).forEach(k => {
       const g = groups.get(k), n = g.w + g.d + g.l;
