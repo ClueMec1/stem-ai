@@ -2483,7 +2483,18 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
   const FB_VER = '10.12.2';
   // Firebase console > Project settings > Cloud Messaging > Web Push certificates > "Key pair".
   // Paste it here to get notifications while the app is fully closed (see README).
-  const VAPID_KEY = 'BKCM42TBjA71NwCfDFDFEt33_gnJ-yzRH9jZtQ_rwA7FrTfWR-73y4MmUTt2WclHuz-yg5b-sJbVodyb2l3Yn4U';
+  const VAPID_KEY = 'PASTE_YOUR_WEB_PUSH_KEY_HERE';
+  // Your free Cloudflare Worker address, e.g. https://connect4-notify.yourname.workers.dev (see README).
+  const PUSH_URL = 'PASTE_YOUR_WORKER_URL_HERE';
+  const pushConfigured = () => !!VAPID_KEY && !VAPID_KEY.startsWith('PASTE') && /^https:\/\//.test(PUSH_URL);
+  // Ask the worker to notify the other player. It checks everything itself.
+  async function notifyRemote(kind, extra) {
+    if (!pushConfigured() || !auth || !auth.currentUser) return;
+    try {
+      const idToken = await auth.currentUser.getIdToken();
+      await fetch(PUSH_URL, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ idToken, kind }, extra)) });
+    } catch (e) {}
+  }
   const hosted = !!document.querySelector('link[rel="manifest"]');
   const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({ code: 'timeout' }), ms))]);
 
@@ -2695,6 +2706,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
         if (blitz) C4.toast('Blitz needs the new Firestore rules. Sent as a normal match.');
       }
       sent = { id: ref.id, to: uid, toName, ref };
+      notifyRemote('invite', { inviteId: ref.id });
       C4.Snd.tap(); C4.toast(`Challenge sent to ${toName}.`);
       sent.unsub = ref.onSnapshot(s => {
         const d = s.data(); if (!d || !sent || sent.id !== s.id) return;
@@ -2895,6 +2907,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
         tx.update(game.ref, { moves: d.moves.concat([c]), turn: game.opp, status, winner: status === 'won' ? me : null, updatedAt: ts() });
       });
       if (status !== 'playing') { game.live = false; pushPresence(); }
+      notifyRemote('move', { gameId: game.id });
       return true;
     } catch (e) { return false; }
   }
@@ -2911,7 +2924,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
   async function leave() {
     const game = OG;
     if (game && !game.spectator && game.live) {
-      try { await game.ref.update({ status: 'left', leftBy: me, updatedAt: ts() }); } catch (e) {}
+      try { await game.ref.update({ status: 'left', leftBy: me, updatedAt: ts() }); notifyRemote('left', { gameId: game.id }); } catch (e) {}
     }
     if (game && !game.spectator) scheduleCleanup(game.id, game.live ? 20000 : 3000);
     cleanupGame(); pushPresence();
@@ -2998,9 +3011,9 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
   }
   async function registerPush(verbose) {
     if (!C4.prefs.notify || !started || !('Notification' in window) || Notification.permission !== 'granted') return;
-    if (!VAPID_KEY || VAPID_KEY.startsWith('PASTE')) {
+    if (!pushConfigured()) {
       pushReady = false;
-      if (verbose) C4.toast('Notifications are on while the app is open. For alerts when it is closed, finish step 6 in the README.');
+      if (verbose) C4.toast('Notifications are on while the app is open. For alerts when it is closed, do the free setup in the README.');
       return;
     }
     try {
