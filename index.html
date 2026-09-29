@@ -813,6 +813,7 @@ main { min-height: 0; position: relative; }
               <button type="button" class="linkbtn" id="rename">Change name</button>
               <button type="button" class="linkbtn" id="go-offline">Go offline</button>
             </div>
+            <button type="button" class="btn" id="notify-btn">Get notified when someone challenges you</button>
             <h2 class="display">Players online</h2>
             <ul class="people" id="people"></ul>
           </div>
@@ -1108,7 +1109,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
   };
   const prefs = Object.assign({
     skin: 'neon', sound: true, haptics: true, persona: 'grandmaster', tier: 'impossible', first: 'me',
-    blitz: 0, powerups: true, p1name: 'Player 1', p2name: 'Player 2', lblitz: 0, lhints: false, oblitz: 0
+    blitz: 0, powerups: true, p1name: 'Player 1', p2name: 'Player 2', lblitz: 0, lhints: false, oblitz: 0, notify: false
   }, store.get('c4x-prefs', {}));
   const savePrefs = () => store.set('c4x-prefs', prefs);
   let history = store.get('c4x-history', []);
@@ -1654,7 +1655,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     G = Object.assign(newBoard(), {
       mode: 'none', over: false, busy: false, thinking: false, result: null, players: [null, {}, {}],
       token, blitz: 0, persona: prefs.persona, tier: prefs.tier, hints: 0, undos: 0, assisted: false,
-      lastEval: null, lockAnnounced: false, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), startedAt: Date.now()
+      lastEval: null, lockAnnounced: false, chatLog: [], id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), startedAt: Date.now()
     }, extra);
     renderPosition([]);
     closeSide();
@@ -2002,7 +2003,8 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
       id: G.id, t: Date.now(), mode: G.mode, oppKey, opp, tier: G.mode === 'ai' ? G.tier : null,
       result: G.mode === 'local' ? (winner === 0 ? 'draw' : 'p' + winner) : outcome,
       moves: G.moves.slice(), myPiece: mp, names: [G.players[1].name, G.players[2].name],
-      blitz: G.blitz || 0, assisted: !!G.assisted, reason: G.result.reason || null
+      blitz: G.blitz || 0, assisted: !!G.assisted, reason: G.result.reason || null,
+      chat: (G.chatLog || []).slice(-60)
     };
     history = history.filter(h => h.id !== rec.id);
     history.push(rec); saveHistory();
@@ -2045,6 +2047,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     configureTabs(['moves', 'feed']);
     setSideTab('moves');
     clearFeed('Quick engine analysis runs in the background. Marks appear on the move list as it finishes.');
+    if (rec.chat && rec.chat.length) { feed('CHAT', `${rec.chat.length} chat message${rec.chat.length === 1 ? '' : 's'} saved on this phone:`); rec.chat.forEach(c => feedSay(c.text, c.who)); }
     $('#action-bar').hidden = true; $('#review-bar').hidden = false;
     $('#watchers').hidden = true;
     $('#rv-range').max = rec.moves.length;
@@ -2245,6 +2248,10 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
         d.append(el('small', '', m.mine ? 'You' : m.name), document.createTextNode(text));
         if (m.k === 'e') d.style.fontSize = '24px';
         paneChat.appendChild(d);
+        if (G.chatLog) {
+          G.chatLog.push({ who: m.mine ? 'You' : m.name, text });
+          if (G.record) { G.record.chat = G.chatLog.slice(-60); saveHistory(); }
+        }
         if (m.live) {
           if (m.k === 'e') floatReact(text, m.piece);
           else if (!m.mine) { speak(text, m.piece || 2, m.name); paneFeed.lastChild?.remove(); }
@@ -2398,6 +2405,12 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
       });
       b.appendChild(field('Theme', skins));
       b.appendChild(switchRow('Sound effects', prefs.sound, v => { prefs.sound = v; savePrefs(); renderSoundBtn(); }));
+      const nrow = switchRow('Notifications', prefs.notify, async v => {
+        if (!window.Online) return;
+        if (v) { const ok = await window.Online.enableNotifications(); if (!ok) nrow.querySelector('.switch').setAttribute('aria-checked', 'false'); }
+        else window.Online.disableNotifications();
+      }, 'Challenges and your turn in online matches, as real phone notifications.');
+      b.appendChild(nrow);
       b.appendChild(switchRow('Vibration', prefs.haptics, v => { prefs.haptics = v; savePrefs(); if (v) buzz(20); }, 'Short buzzes when discs land (Android).'));
       const pf = field('NEUMAI personality', id => segControl(Object.entries(PERSONAS).map(([k, p]) => [k, p.short]), prefs.persona, v => { prefs.persona = v; savePrefs(); pf._hint.textContent = PERSONAS[v].note; if (G.mode === 'ai' && !G.over) G.persona = v; }, id), PERSONAS[prefs.persona].note);
       b.appendChild(pf);
@@ -2468,6 +2481,9 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     measurementId: 'G-WK74MMJ5XZ'
   };
   const FB_VER = '10.12.2';
+  // Firebase console > Project settings > Cloud Messaging > Web Push certificates > "Key pair".
+  // Paste it here to get notifications while the app is fully closed (see README).
+  const VAPID_KEY = 'PASTE_YOUR_WEB_PUSH_KEY_HERE';
   const hosted = !!document.querySelector('link[rel="manifest"]');
   const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({ code: 'timeout' }), ms))]);
 
@@ -2500,10 +2516,10 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     if (/configuration-not-found/.test(c)) t = 'Sign-in is not set up yet. In Firebase, open Authentication, tap Get started, then turn on Anonymous.';
     else if (/operation-not-allowed|admin-restricted/.test(c)) t = 'Anonymous sign-in is turned off. In Firebase, open Authentication > Sign-in method and turn on Anonymous.';
     else if (/unauthorized-domain|referer/i.test(c)) t = 'This website is not allowed yet. Add it in Firebase under Authentication > Settings > Authorized domains.';
-    else if (/api-key/i.test(c)) t = 'Firebase says the API key is not valid. Check apiKey in index.html.';
-    else if (/database url|firebaseio|firebasedatabase|different region|Cannot parse/i.test(c)) t = 'The Realtime Database address is wrong. Copy the URL from Realtime Database > Data into databaseURL in index.html.';
+    else if (/api-key/i.test(c)) t = 'Firebase says the API key is not valid. Check apiKey in js/online.js.';
+    else if (/database url|firebaseio|firebasedatabase|different region|Cannot parse/i.test(c)) t = 'The Realtime Database address is wrong. Copy the URL from Realtime Database > Data into databaseURL in js/online.js.';
     else if (/permission/i.test(c)) t = 'Firebase blocked this. Rooms, chat, watching and blitz need the new rules from the zip published in Firebase.';
-    else if (/timeout/.test(c)) t = 'The server did not answer. Make sure the Realtime Database exists and its URL in index.html is right.';
+    else if (/timeout/.test(c)) t = 'The server did not answer. Make sure the Realtime Database exists and its URL in js/online.js is right.';
     else if (/network/i.test(c)) t = 'Could not reach the server. Check your internet and try again.';
     const detail = c.trim().slice(0, 160);
     return detail ? `${t} (Details: ${detail})` : t;
@@ -2539,7 +2555,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
   }
   function onConn(snap) {
     if (snap.val() !== true || !statusRef || wentOffline) return;
-    statusRef.onDisconnect().update(offlinePatch())
+    statusRef.onDisconnect().remove()
       .then(() => statusRef.set(presence(true))).catch(() => {});
   }
   function bumpIdle() {
@@ -2633,6 +2649,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
       step = 'firestore';
       listenPeople(); listenInvites();
       started = true; bumpIdle(); msg(''); showHome(); C4.Snd.tap();
+      sweep(); registerPush(false);
     } catch (e) { msg(explain(e) + ' [step: ' + step + ']'); try { console.error(e); } catch (x) {} }
     finally { $('#go-online').disabled = false; }
   }
@@ -2642,7 +2659,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     if (room) await closeRoom();
     try { rdb.ref('.info/connected').off('value', onConn); } catch (e) {}
     if (peopleQ) peopleQ.off(); if (invitesUnsub) invitesUnsub();
-    try { await statusRef.update(offlinePatch()); } catch (e) {}
+    try { await statusRef.remove(); } catch (e) {}
     try { rdb.goOffline(); } catch (e) {}
     started = false; people = {};
     showSignin(); msg('You are offline. Nobody can see you.');
@@ -2681,9 +2698,9 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
       C4.Snd.tap(); C4.toast(`Challenge sent to ${toName}.`);
       sent.unsub = ref.onSnapshot(s => {
         const d = s.data(); if (!d || !sent || sent.id !== s.id) return;
-        if (d.status === 'accepted' && d.gameId) { clearSent(); enterGame(d.gameId, false); }
-        else if (d.status === 'declined') { clearSent(); C4.toast(`${toName} said no thanks.`); }
-        else if (d.status === 'cancelled') clearSent();
+        if (d.status === 'accepted' && d.gameId) { clearSent(); enterGame(d.gameId, false); ref.delete().catch(() => {}); }
+        else if (d.status === 'declined') { clearSent(); C4.toast(`${toName} said no thanks.`); ref.delete().catch(() => {}); }
+        else if (d.status === 'cancelled') { clearSent(); ref.delete().catch(() => {}); }
       });
       sent.timer = setTimeout(() => cancelInvite(true), 45000);
       renderPeople();
@@ -2693,7 +2710,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
   async function cancelInvite(timedOut) {
     if (!sent) return;
     const s = sent; clearSent();
-    try { await s.ref.update({ status: 'cancelled', updatedAt: ts() }); } catch (e) {}
+    try { await s.ref.delete(); } catch (e) {}
     C4.toast(timedOut ? `${s.toName} didn't answer.` : 'Challenge cancelled.');
   }
   function listenInvites() {
@@ -2711,6 +2728,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     const inv = list.find(i => !seen.has(i.id)); if (!inv) return;
     seen.add(inv.id); incoming = inv;
     C4.Snd.ding(); C4.buzz([100, 80, 100]);
+    if (document.hidden && !pushReady) localNotify(`${inv.fromName} challenges you!`, inv.blitz ? `Blitz, ${inv.blitz} s per move. Tap to answer.` : 'Tap to answer.', 'invite');
     modal.textContent = '';
     const card = el('div', 'card invite-card'); card.setAttribute('role', 'dialog');
     const av = el('div', 'avatar', (inv.fromName || '?').trim().charAt(0).toUpperCase());
@@ -2771,13 +2789,13 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
       room = { code, ref };
       room.unsub = ref.onSnapshot(s => {
         const d = s.data(); if (!d || !room) return;
-        if (d.status === 'joined' && d.gameId) { const id = d.gameId; stopRoom(); C4.toast(`${d.guestName} joined your room.`); enterGame(id, false); }
+        if (d.status === 'joined' && d.gameId) { const id = d.gameId; stopRoom(); C4.toast(`${d.guestName} joined your room.`); enterGame(id, false); ref.delete().catch(() => {}); }
       });
       renderRoom();
     } catch (e) { C4.toast(explain(e)); }
   });
   function stopRoom() { if (room && room.unsub) room.unsub(); room = null; renderRoom(); }
-  async function closeRoom() { if (!room) return; const r = room; stopRoom(); try { await r.ref.update({ status: 'closed' }); } catch (e) {} }
+  async function closeRoom() { if (!room) return; const r = room; stopRoom(); try { await r.ref.delete(); } catch (e) {} }
   $('#room-cancel').addEventListener('click', () => { C4.Snd.tap(); closeRoom(); });
   $('#join-form').addEventListener('submit', async e => {
     e.preventDefault();
@@ -2860,8 +2878,13 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
       if (game.pendingChat) { C4.onChat(game.pendingChat); game.pendingChat = null; }
       if (game.spectator && d.status !== 'playing') C4.toast('This match already finished.');
     }
+    const prevLen = game.lastLen || 0; game.lastLen = (d.moves || []).length;
     await C4.syncOnline({ moves: d.moves || [], status: d.status, leftBy: d.leftBy, players: d.players, me });
+    if (!game.spectator && d.status === 'playing' && d.turn === me && game.lastLen > prevLen && document.hidden && !pushReady) {
+      localNotify('Your move', `${game.oppName} played column ${d.moves[d.moves.length - 1] + 1}.`, 'turn-' + game.id);
+    }
     if (d.status !== 'playing' && game.live) { game.live = false; pushPresence(); }
+    if (d.status !== 'playing' && !game.spectator) scheduleCleanup(game.id, 45000);
   }
   async function sendMove(c, idx, status) {
     const game = OG; if (!game || game.spectator) return false;
@@ -2890,6 +2913,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     if (game && !game.spectator && game.live) {
       try { await game.ref.update({ status: 'left', leftBy: me, updatedAt: ts() }); } catch (e) {}
     }
+    if (game && !game.spectator) scheduleCleanup(game.id, game.live ? 20000 : 3000);
     cleanupGame(); pushPresence();
     C4.detach();
     C4.showView('online');
@@ -2914,7 +2938,112 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     }, 15000);
   }
 
-  window.Online = { open, sendMove, sendChat, leave, rematch, resync, hosted };
+  // ---------- storage cleanup ----------
+  // Finished games (moves + chat) are saved on this phone by app.js, so the
+  // copies in Firebase are erased shortly after the match ends.
+  const cleaned = new Set();
+  function scheduleCleanup(id, delay) {
+    if (cleaned.has(id)) return;
+    cleaned.add(id);
+    setTimeout(() => deleteGame(id), delay);
+  }
+  async function deleteGame(id) {
+    if (!fs || (OG && OG.id === id && OG.live)) return;
+    const ref = fs.collection('games').doc(id);
+    try {
+      const chat = await ref.collection('chat').get();
+      await Promise.all(chat.docs.map(d => d.ref.delete().catch(() => {})));
+      await ref.delete();
+    } catch (e) {}
+  }
+  // Removes anything of yours left behind (app closed mid-match, old rooms, old challenges).
+  async function sweep() {
+    const now = Date.now();
+    const ms = v => (v && v.toMillis ? v.toMillis() : 0);
+    try {
+      const gs = await fs.collection('games').where('players', 'array-contains', me).get();
+      gs.forEach(doc => {
+        if (OG && OG.id === doc.id) return;
+        const d = doc.data();
+        if (d.status !== 'playing' || now - ms(d.updatedAt) > 3600000) deleteGame(doc.id);
+      });
+    } catch (e) {}
+    try {
+      const rs = await fs.collection('rooms').where('host', '==', me).get();
+      rs.forEach(d => { if (!room || room.code !== d.id) d.ref.delete().catch(() => {}); });
+    } catch (e) {}
+    try {
+      const a = await fs.collection('invites').where('from', '==', me).get();
+      a.forEach(d => { if (!sent || sent.id !== d.id) d.ref.delete().catch(() => {}); });
+      const b = await fs.collection('invites').where('to', '==', me).get();
+      b.forEach(d => { const v = d.data(); if (v.status !== 'pending' || now - ms(v.createdAt) > 300000) d.ref.delete().catch(() => {}); });
+    } catch (e) {}
+  }
+
+  // ---------- notifications ----------
+  let pushReady = false;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  async function localNotify(title, body, tag) {
+    try {
+      if (!C4.prefs.notify || !('Notification' in window) || Notification.permission !== 'granted') return;
+      const reg = navigator.serviceWorker ? await navigator.serviceWorker.getRegistration() : null;
+      const opts = { body, icon: 'icon-192.png', badge: 'icon-192.png', tag, renotify: true, vibrate: [100, 50, 100], data: { url: location.href } };
+      if (reg) await reg.showNotification(title, opts); else new Notification(title, opts);
+    } catch (e) {}
+  }
+  async function loadMessaging() {
+    if (window.firebase && firebase.messaging) return;
+    try { await loadScript(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-messaging-compat.js`); }
+    catch (e) { await loadScript(`https://cdn.jsdelivr.net/npm/firebase@${FB_VER}/firebase-messaging-compat.js`); }
+  }
+  async function registerPush(verbose) {
+    if (!C4.prefs.notify || !started || !('Notification' in window) || Notification.permission !== 'granted') return;
+    if (!VAPID_KEY || VAPID_KEY.startsWith('PASTE')) {
+      pushReady = false;
+      if (verbose) C4.toast('Notifications are on while the app is open. For alerts when it is closed, finish step 6 in the README.');
+      return;
+    }
+    try {
+      await withTimeout(loadMessaging(), 12000);
+      const reg = await withTimeout(navigator.serviceWorker.ready, 8000);
+      const token = await firebase.messaging().getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+      if (!token) throw { code: 'no-token' };
+      await fs.collection('pushTokens').doc(me).set({ token, updatedAt: ts() });
+      pushReady = true;
+      if (verbose) C4.toast('Notifications on, even when the app is closed.');
+    } catch (e) {
+      pushReady = false;
+      if (verbose) C4.toast('Closed-app notifications could not start. ' + explain(e));
+    }
+  }
+  async function enableNotifications() {
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+      C4.toast(isIOS ? 'On iPhone, add the app to your Home Screen first, then turn this on from there.' : 'This browser does not support notifications.');
+      return false;
+    }
+    let p = Notification.permission;
+    if (p === 'default') p = await Notification.requestPermission();
+    if (p !== 'granted') { C4.toast('Notifications are blocked for this site. Allow them in your browser or phone settings.'); return false; }
+    C4.prefs.notify = true; C4.savePrefs();
+    if (started) await registerPush(true); else C4.toast('Notifications on. Go online to receive challenges.');
+    renderNotifyBtn();
+    return true;
+  }
+  async function disableNotifications() {
+    C4.prefs.notify = false; C4.savePrefs(); pushReady = false;
+    try { if (started) await fs.collection('pushTokens').doc(me).delete(); } catch (e) {}
+    try { if (window.firebase && firebase.messaging) await firebase.messaging().deleteToken(); } catch (e) {}
+    renderNotifyBtn();
+  }
+  function renderNotifyBtn() {
+    const b = $('#notify-btn'); if (!b) return;
+    b.hidden = !!C4.prefs.notify;
+  }
+  const nb = $('#notify-btn');
+  if (nb) nb.addEventListener('click', () => { C4.Snd.tap(); enableNotifications(); });
+  renderNotifyBtn();
+
+  window.Online = { open, sendMove, sendChat, leave, rematch, resync, hosted, enableNotifications, disableNotifications };
 })();
 
 </script>

@@ -25,7 +25,11 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'gameId', 'updatedAt'])
         && ((request.auth.uid == resource.data.to && request.resource.data.status in ['accepted', 'declined'])
           || (request.auth.uid == resource.data.from && request.resource.data.status == 'cancelled'));
-      allow delete: if false;
+      // Cleanup: the sender removes it once answered; the receiver can clear answered or stale ones.
+      allow delete: if signedIn()
+        && (resource.data.from == request.auth.uid
+          || (resource.data.to == request.auth.uid
+            && (resource.data.status != 'pending' || resource.data.createdAt < request.time - duration.value(5, 'm'))));
     }
 
     // Private rooms: anyone signed in who knows the code can read and join.
@@ -61,7 +65,7 @@ service cloud.firestore {
           && validBlitz(request.resource.data.blitz)
           && request.resource.data.status == 'open')
       );
-      allow delete: if false;
+      allow delete: if signedIn() && resource.data.host == request.auth.uid;
     }
 
     // Games: anyone signed in can watch; only the two players can change a game.
@@ -103,7 +107,9 @@ service cloud.firestore {
         && request.resource.data.status == 'playing'
         && validBlitz(request.resource.data.blitz);
       allow update: if isPlayer() && (isMove() || isLeave());
-      allow delete: if false;
+      // Cleanup: finished games, or games nobody touched for an hour.
+      allow delete: if isPlayer()
+        && (resource.data.status != 'playing' || resource.data.updatedAt < request.time - duration.value(1, 'h'));
 
       // Quick chat: players send phrases and emoji, spectators send emoji only.
       match /chat/{msgId} {
@@ -118,8 +124,20 @@ service cloud.firestore {
           && request.resource.data.at == request.time
           && (request.resource.data.k == 'e'
             || request.auth.uid in get(/databases/$(database)/documents/games/$(gameId)).data.players);
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if signedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/games/$(gameId)).data.players;
       }
+    }
+
+    // Notification address for each player. Only the notification function reads these.
+    match /pushTokens/{uid} {
+      allow read: if false;
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['token', 'updatedAt'])
+        && request.resource.data.token is string
+        && request.resource.data.token.size() < 4096;
+      allow delete: if signedIn() && request.auth.uid == uid;
     }
 
     match /{document=**} { allow read, write: if false; }
