@@ -625,6 +625,30 @@ main { min-height: 0; position: relative; }
 }
 @media (max-width: 380px) { .action-bar .btn span.t { display: inline; } }
 
+/* ---------------- Grandmaster Dojo ---------------- */
+.feed-say { white-space: pre-line; }
+.feed-say.thinking { opacity: .65; font-style: italic; }
+.trap-step { font-variant-numeric: tabular-nums; font-weight: 800; text-align: center; min-width: 64px; }
+#trap-bar .scrub { grid-template-columns: auto auto 1fr auto auto; }
+.disc.step { opacity: .82; outline: 3px dashed rgba(255, 255, 255, .7); outline-offset: -3px; }
+.disc .num {
+  position: absolute; inset: 0; display: grid; place-items: center; font-weight: 800;
+  font-size: clamp(11px, 2.6vw, 20px); color: rgba(0, 0, 0, .72); font-family: var(--font-body);
+}
+.threat-line { fill: none; stroke-width: 9; stroke-linecap: round; stroke-dasharray: 2 16; opacity: .95; }
+.threat-ring { fill: none; stroke-width: 6; stroke-dasharray: 10 8; animation: spin 6s linear infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.colmap { position: absolute; z-index: 5; left: 2.7%; right: 2.7%; top: 2%; height: 9%; display: grid; grid-template-columns: repeat(7, 1fr); gap: 1.4%; pointer-events: none; }
+.cm { align-self: center; justify-self: center; font-size: clamp(9px, 2vw, 12px); font-weight: 800; letter-spacing: .04em; padding: 3px 6px; border-radius: 999px; color: #fff; background: var(--neutral); box-shadow: 0 2px 8px rgba(0, 0, 0, .3); animation: rowin .25s ease; }
+.cm.win { background: var(--good); color: #04160C; }
+.cm.good { background: color-mix(in srgb, var(--good) 70%, #000); }
+.cm.ok { background: var(--neutral); }
+.cm.risky { background: #F29A1A; color: #1c1100; }
+.cm.lose { background: var(--bad); }
+.cm.full { visibility: hidden; }
+:root[data-skin="arcade"] .cm { border-radius: 0; font-size: 12px; }
+#coach-chips button { font-size: 12.5px; }
+
 </style>
 <!--HEAD-END-->
 </head>
@@ -671,6 +695,12 @@ main { min-height: 0; position: relative; }
             <span class="tag">Same device</span>
             <h2 class="display">Pass &amp; Play</h2>
             <p>Two players, one screen. Add a turn timer for blitz games.</p>
+          </button>
+          <button type="button" class="mode glass" id="mode-dojo">
+            <span class="mode-art" aria-hidden="true"><i class="a"></i><i class="a"></i><i class="a"></i><i class="b" style="opacity:.35"></i></span>
+            <span class="tag">Learning</span>
+            <h2 class="display">Grandmaster Dojo</h2>
+            <p>A sandbox that never touches your stats. Ask NEUMAI about the board and watch how its traps are built, step by step.</p>
           </button>
           <button type="button" class="mode glass" id="mode-online">
             <span class="mode-art" aria-hidden="true"><i class="b"></i><i class="a"></i><i class="b"></i><i class="a"></i></span>
@@ -747,12 +777,31 @@ main { min-height: 0; position: relative; }
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"/></svg>
               <span class="t" id="panel-btn-label">Feed</span>
             </button>
+            <button type="button" class="btn" id="ask-btn" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.6-.8 1.1v.5M12 16.5h.01"/></svg>
+              <span class="t">Ask</span>
+            </button>
+            <button type="button" class="btn" id="trap-btn" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+              <span class="t">Trap</span>
+            </button>
             <button type="button" class="btn" id="menu-btn">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18 9 12l6-6"/></svg>
               <span class="t">Leave</span>
             </button>
           </div>
 
+          <div class="review-bar" id="trap-bar" hidden>
+            <p class="review-note" id="trap-cap" aria-live="polite"></p>
+            <div class="scrub">
+              <button type="button" class="btn" id="tp-first" aria-label="Back to start">|&lt;</button>
+              <button type="button" class="btn" id="tp-prev" aria-label="Previous step">&lt;</button>
+              <span class="trap-step" id="trap-step">0 / 0</span>
+              <button type="button" class="btn" id="tp-next" aria-label="Next step">&gt;</button>
+              <button type="button" class="btn" id="tp-play">Auto</button>
+            </div>
+            <button type="button" class="btn primary" id="tp-exit">Back to the game</button>
+          </div>
           <div class="review-bar" id="review-bar" hidden>
             <p class="review-note" id="review-note"></p>
             <div class="chart" id="eval-chart"></div>
@@ -776,10 +825,19 @@ main { min-height: 0; position: relative; }
             <button type="button" role="tab" id="tab-feed" data-tab="feed">Neural Feed</button>
             <button type="button" role="tab" id="tab-chat" data-tab="chat">Chat</button>
             <button type="button" role="tab" id="tab-moves" data-tab="moves">Moves</button>
+            <button type="button" role="tab" id="tab-coach" data-tab="coach" hidden>Ask NEUMAI</button>
           </div>
           <div class="side-body" id="pane-feed"></div>
           <div class="side-body" id="pane-chat" hidden></div>
           <div class="side-body" id="pane-moves" hidden></div>
+          <div class="side-body" id="pane-coach" hidden></div>
+          <div class="side-foot" id="coach-foot" hidden>
+            <div class="phrases" id="coach-chips"></div>
+            <form class="row" id="coach-form">
+              <input class="input" id="coach-input" maxlength="140" autocomplete="off" placeholder="Ask about this board…" aria-label="Ask NEUMAI a question">
+              <button type="submit" class="btn primary">Ask</button>
+            </form>
+          </div>
           <div class="side-foot" id="chat-foot" hidden>
             <div class="react-tray" id="react-tray"></div>
             <div class="phrases" id="phrases"></div>
@@ -1020,6 +1078,25 @@ function engineFactory() {
     return best;
   }
 
+  // Principal variation: follow the transposition table from a root move.
+  function extractPV(first) {
+    const pv = [first];
+    play(first);
+    while (pv.length < 20 && moves < N) {
+      const idx = h1 & TM;
+      if (!tFlag[idx] || tKey[idx] !== h2) break;
+      const m = tMove[idx];
+      if (m < 0 || m >= W || h[m] >= H) break;
+      // stop at a finished game
+      const p = (moves & 1) ? 2 : 1;
+      const done = winsAt(p, m * H + h[m]);
+      pv.push(m); play(m);
+      if (done) break;
+    }
+    for (let i = pv.length - 1; i >= 0; i--) undo(pv[i]);
+    return pv;
+  }
+
   return function think(list, ms) {
     board.fill(0); h.fill(0); cnt[1].fill(0); cnt[2].fill(0); hist.fill(0);
     moves = 0; h1 = 0; h2 = 0;
@@ -1029,7 +1106,7 @@ function engineFactory() {
     const legal = ORDER.filter(c => h[c] < H);
     for (const c of legal) if (winsAt(p, c * H + h[c])) return { move: c, score: WIN - 1, depth: 1, nodes: 0, exact: true, pv: [c], legal: legal.length };
     if (legal.length === 1) return { move: legal[0], score: 0, depth: 0, nodes: 0, exact: false, pv: [legal[0]], legal: 1, forcedOnly: true };
-    let bestMove = legal[0], bestScore = 0, done = 0;
+    let bestMove = legal[0], bestScore = 0, done = 0, lastPV = null;
     for (let depth = 1; depth <= rem; depth++) {
       try {
         const order = [bestMove, ...legal.filter(c => c !== bestMove)];
@@ -1048,6 +1125,7 @@ function engineFactory() {
           if (v > alpha) alpha = v;
         }
         bestMove = ib; bestScore = is; done = depth;
+        lastPV = extractPV(bestMove); // read the line now, before deeper searches overwrite the table
         if (Math.abs(bestScore) > MATE) break;
       } catch (e) {
         if (e !== STOP) throw e;
@@ -1056,18 +1134,7 @@ function engineFactory() {
         break;
       }
     }
-    // Principal variation: follow the transposition table from the chosen move.
-    const pv = [bestMove];
-    play(bestMove);
-    let steps = 1;
-    while (steps < 12 && moves < N) {
-      const idx = h1 & TM;
-      if (!tFlag[idx] || tKey[idx] !== h2) break;
-      const m = tMove[idx];
-      if (m < 0 || m >= W || h[m] >= H) break;
-      pv.push(m); play(m); steps++;
-    }
-    for (let i = pv.length - 1; i >= 0; i--) undo(pv[i]);
+    const pv = lastPV && lastPV[0] === bestMove ? lastPV : extractPV(bestMove);
     return { move: bestMove, score: bestScore, depth: done, nodes, exact: done >= rem || Math.abs(bestScore) > MATE, pv, legal: legal.length };
   };
 }
@@ -1109,7 +1176,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
   };
   const prefs = Object.assign({
     skin: 'neon', sound: true, haptics: true, persona: 'grandmaster', tier: 'impossible', first: 'me',
-    blitz: 0, powerups: true, p1name: 'Player 1', p2name: 'Player 2', lblitz: 0, lhints: false, oblitz: 0, notify: false
+    blitz: 0, powerups: true, p1name: 'Player 1', p2name: 'Player 2', lblitz: 0, lhints: false, oblitz: 0, notify: false, dojoOpp: 'ai', dojoTier: 'brutal', dojoFirst: 'me'
   }, store.get('c4x-prefs', {}));
   const savePrefs = () => store.set('c4x-prefs', prefs);
   let history = store.get('c4x-history', []);
@@ -1316,7 +1383,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
   const turnPiece = () => (G.moves.length % 2 === 0 ? 1 : 2);
   const cur = () => G.players[turnPiece()];
   const active = () => G.mode !== 'none' && G.mode !== 'review' && !G.over;
-  const canAct = () => active() && !G.busy && !G.thinking && cur() && cur().kind === 'me';
+  const canAct = () => active() && !G.busy && !G.thinking && !G.trap && cur() && cur().kind === 'me';
   const myPiece = () => (G.players[1].kind === 'me' && G.players[2].kind !== 'me' ? 1 : G.players[2].kind === 'me' && G.players[1].kind !== 'me' ? 2 : 0);
 
   // ---------------- board rendering ----------------
@@ -1431,7 +1498,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     if (!reduced() && ln.animate) ln.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 450, easing: 'ease-out', fill: 'forwards' });
   }
   let hintEls = [];
-  function clearHint() { hintEls.forEach(e => e.remove()); hintEls = []; }
+  function clearHint() { hintEls.forEach(e => e.remove()); hintEls = []; if (typeof clearColMap === 'function') clearColMap(); }
   function showHint(c) {
     clearHint();
     const arrow = el('div', 'hint-arrow');
@@ -1534,17 +1601,18 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
   let sideTab = 'feed';
   function setSideTab(t) {
     sideTab = t;
-    ['feed', 'chat', 'moves'].forEach(n => {
+    ['feed', 'chat', 'moves', 'coach'].forEach(n => {
       $('#tab-' + n).setAttribute('aria-selected', n === t);
       $('#pane-' + n).hidden = n !== t;
     });
     $('#chat-foot').hidden = t !== 'chat' || !chatEnabled;
+    $('#coach-foot').hidden = t !== 'coach';
     if (t === 'moves') renderMoves();
     const p = $('#pane-' + t); scrollBottom(p);
   }
   $$('.side-tabs button').forEach(b => b.addEventListener('click', () => setSideTab(b.dataset.tab)));
   function configureTabs(tabs) {
-    ['feed', 'chat', 'moves'].forEach(n => { $('#tab-' + n).hidden = !tabs.includes(n); });
+    ['feed', 'chat', 'moves', 'coach'].forEach(n => { $('#tab-' + n).hidden = !tabs.includes(n); });
     if (!tabs.includes(sideTab)) setSideTab(tabs[0]); else setSideTab(sideTab);
   }
   const side = $('#side'), backdrop = $('#side-backdrop');
@@ -1606,6 +1674,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
   $('#mode-ai').addEventListener('click', () => { Snd.init(); Snd.tap(); setupAI(); });
   $('#mode-local').addEventListener('click', () => { Snd.init(); Snd.tap(); setupLocal(); });
   $('#mode-online').addEventListener('click', () => { Snd.init(); Snd.tap(); showView('online'); });
+  $('#mode-dojo').addEventListener('click', () => { Snd.init(); Snd.tap(); setupDojo(); });
 
   function setupAI() {
     openSheet(b => {
@@ -1657,6 +1726,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
       token, blitz: 0, persona: prefs.persona, tier: prefs.tier, hints: 0, undos: 0, assisted: false,
       lastEval: null, lockAnnounced: false, chatLog: [], id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), startedAt: Date.now()
     }, extra);
+    clearTrapEls(); trapStop();
     renderPosition([]);
     closeSide();
     clearFeed();
@@ -1692,10 +1762,11 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
   function enterGame() {
     const online = ['online', 'spectate'].includes(G.mode);
     chatEnabled = online;
-    configureTabs(G.mode === 'ai' ? ['feed', 'moves'] : online ? ['chat', 'moves'] : ['feed', 'moves']);
-    setSideTab(G.mode === 'local' ? 'moves' : online ? 'chat' : 'feed');
+    const dojo = G.mode === 'dojo';
+    configureTabs(dojo ? ['coach', 'feed', 'moves'] : G.mode === 'ai' ? ['feed', 'moves'] : online ? ['chat', 'moves'] : ['feed', 'moves']);
+    setSideTab(dojo ? 'coach' : G.mode === 'local' ? 'moves' : online ? 'chat' : 'feed');
     $('#panel-btn-label').textContent = online ? 'Chat' : G.mode === 'local' ? 'Moves' : 'Feed';
-    $('#action-bar').hidden = false; $('#review-bar').hidden = true;
+    $('#action-bar').hidden = false; $('#review-bar').hidden = true; $('#trap-bar').hidden = true;
     $('#watchers').hidden = true;
     renderPlates(); renderActions(); renderMoves();
     showView('game');
@@ -1714,16 +1785,19 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
   }
   function renderActions() {
     const show = G.mode === 'ai' || G.mode === 'local';
-    const hb = $('#hint-btn'), ub = $('#undo-btn');
+    const dojo = G.mode === 'dojo';
+    const hb = $('#hint-btn'), ub = $('#undo-btn'), pb = $('#panel-btn');
     hb.hidden = !(show && (G.hints > 0 || G.hintsUsed));
-    ub.hidden = !(show && (G.undos > 0 || G.undosUsed));
+    ub.hidden = !((show || dojo) && (G.undos > 0 || G.undosUsed));
+    $('#ask-btn').hidden = !dojo; $('#trap-btn').hidden = !dojo; pb.hidden = dojo;
+    $('#trap-btn').disabled = !dojo || G.over || G.thinking || G.busy || !!G.trap;
     $('#hint-count').textContent = G.hints;
-    $('#undo-count').textContent = G.undos;
+    $('#undo-count').textContent = G.undos === Infinity ? '∞' : G.undos;
     hb.disabled = !canAct() || G.hints <= 0;
     const anyMine = G.mode === 'local' ? G.moves.length > 0 : G.moves.some((c, i) => G.players[i % 2 === 0 ? 1 : 2].kind === 'me');
     ub.disabled = G.thinking || G.busy || G.undos <= 0 || !anyMine || G.over && G.mode === 'none';
     const ab = $('#action-bar');
-    const visible = [hb, ub].filter(b => !b.hidden).length + 2;
+    const visible = [hb, ub, pb, $('#ask-btn'), $('#trap-btn'), $('#menu-btn')].filter(b => !b.hidden).length;
     ab.style.gridTemplateColumns = `repeat(${visible}, 1fr)`;
     $('#menu-btn').querySelector('.t').textContent = G.over ? 'Menu' : 'Leave';
     hits.forEach((b, c) => { const lock = !canAct() || G.h[c] >= H; b.classList.toggle('locked', lock); b.setAttribute('aria-disabled', lock); });
@@ -1794,7 +1868,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
 
   async function playMove(c, source) {
     const token = G.token, idx = G.moves.length, p = turnPiece();
-    G.busy = true; ghost(-1); clearHint(); stopClock(); renderActions();
+    G.busy = true; ghost(-1); clearHint(); stopClock(); linesEl.innerHTML = ''; renderActions();
     const r = G.h[c];
     G.board[c * H + r] = p; G.h[c]++; G.moves.push(c);
     renderMoves();
@@ -1902,18 +1976,19 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
   });
   $('#undo-btn').addEventListener('click', () => {
     if (G.undos <= 0 || G.thinking || G.busy || !G.moves.length) return;
-    if (G.mode !== 'ai' && G.mode !== 'local') return;
+    if (G.mode !== 'ai' && G.mode !== 'local' && G.mode !== 'dojo') return;
+    if (G.trap) exitTrap();
     const wasOver = G.over;
     G.token++; stopClock();
     const pop = () => { const c = G.moves.pop(); G.h[c]--; G.board[c * H + G.h[c]] = 0; };
-    if (G.mode === 'local') pop();
+    if (G.mode === 'local' || (G.mode === 'dojo' && G.dojoSelf)) pop();
     else {
       const mine = G.moves.some((c, i) => G.players[i % 2 === 0 ? 1 : 2].kind === 'me');
       if (!mine) return;
       do { pop(); } while (G.moves.length && cur().kind !== 'me');
       if (cur().kind !== 'me') { /* back at start with AI to move */ }
     }
-    G.undos--; G.undosUsed = true; G.assisted = G.mode === 'ai' ? true : G.assisted;
+    if (G.undos !== Infinity) G.undos--; G.undosUsed = true; G.assisted = G.mode === 'ai' ? true : G.assisted;
     G.over = false; G.result = null; G.lastEval = null;
     renderPosition(G.moves);
     Snd.whoosh();
@@ -1922,6 +1997,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     if (G.mode === 'ai') speak(personaLine('undo'), aiPiece(), 'NEUMAI');
     renderMoves();
     nextTurn();
+    if (G.mode === 'dojo') coachSay('Move taken back. Ask me about this position anytime.');
   });
   $('#menu-btn').addEventListener('click', () => {
     Snd.tap();
@@ -1950,7 +2026,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     renderPlates(); renderActions();
     const mp = myPiece();
     let outcome = winner === 0 ? 'draw' : mp ? (winner === mp ? 'win' : 'loss') : 'win';
-    if (G.mode === 'ai') {
+    if (G.mode === 'ai' || (G.mode === 'dojo' && !G.dojoSelf)) {
       if (outcome === 'win') { Snd.win(); confetti(); buzz([60, 50, 60, 50, 120]); speak(personaLine('aiLose'), aiPiece(), 'NEUMAI'); }
       else if (outcome === 'loss') { Snd.lose(); buzz(220); speak(personaLine('aiWin'), aiPiece(), 'NEUMAI'); }
       else { Snd.draw(); speak(personaLine('draw'), aiPiece(), 'NEUMAI'); }
@@ -1968,14 +2044,15 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     const wName = winner ? G.players[winner].name : '';
     let title, cls, sub;
     if (winner === 0) { title = 'Draw'; cls = 'draw'; sub = 'Nobody connected four.'; }
-    else if (G.mode === 'local' || G.mode === 'spectate') { title = `${wName} wins`; cls = 'win'; sub = reason === 'left' ? 'The other player left.' : 'Four in a row!'; }
+    else if (G.mode === 'local' || G.mode === 'spectate' || (G.mode === 'dojo' && G.dojoSelf)) { title = `${wName} wins`; cls = 'win'; sub = reason === 'left' ? 'The other player left.' : 'Four in a row!'; }
     else if (outcome === 'win') { title = 'You win!'; cls = 'win'; sub = reason === 'left' ? 'Your opponent left the match.' : G.mode === 'ai' ? `You beat NEUMAI on ${TIERS[G.tier].label}.` : 'Four in a row!'; }
     else { title = `${wName} wins`; cls = 'loss'; sub = G.mode === 'ai' ? 'Review the game to find the turning point.' : 'So close. Ask for a rematch?'; }
     const buttons = [];
     if (G.mode === 'ai') buttons.push({ label: 'Play again', primary: true, fn: () => startAI(true) });
+    if (G.mode === 'dojo') buttons.push({ label: 'Undo last move', primary: true, fn: () => $('#undo-btn').click() }, { label: 'New sandbox', fn: startDojo });
     if (G.mode === 'local') buttons.push({ label: 'Rematch', primary: true, fn: () => { const a = prefs.p1name; prefs.p1name = prefs.p2name; prefs.p2name = a; savePrefs(); startLocal(); } });
     if (G.mode === 'online') buttons.push({ label: 'Rematch', primary: true, fn: () => window.Online && window.Online.rematch() });
-    if (G.moves.length) buttons.push({ label: 'Review game', fn: () => startReview(currentRecord()) });
+    if (G.moves.length && G.mode !== 'dojo') buttons.push({ label: 'Review game', fn: () => startReview(currentRecord()) });
     buttons.push({ label: G.mode === 'online' || G.mode === 'spectate' ? 'Lobby' : 'Menu', fn: leaveMatch });
     buttons.push({ label: 'See board', fn: () => { $('#result').hidden = true; } });
     showCard(title, cls, sub, buttons);
@@ -1992,7 +2069,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     return G.record || { moves: G.moves.slice(), names: [G.players[1].name, G.players[2].name], mode: G.mode, myPiece: myPiece(), t: Date.now() };
   }
   function recordGame(outcome) {
-    if (G.mode === 'spectate' || G.mode === 'review' || !G.moves.length) return;
+    if (G.mode === 'spectate' || G.mode === 'review' || G.mode === 'dojo' || !G.moves.length) return;
     const mp = myPiece();
     let oppKey, opp;
     if (G.mode === 'ai') { oppKey = 'ai:' + G.tier; opp = `NEUMAI · ${TIERS[G.tier].label}`; }
@@ -2172,6 +2249,402 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
     svg.style.cursor = 'pointer';
     svg.onclick = e => { const r = svg.getBoundingClientRect(); reviewGo(Math.round((e.clientX - r.left) / r.width * n)); };
   }
+
+
+  // ---------------- Grandmaster Dojo: sandbox, Ask NEUMAI, Show Me the Trap ----------------
+  const paneCoach = $('#pane-coach');
+  function setupDojo() {
+    openSheet(b => {
+      b.appendChild(el('h2', 'display', 'Grandmaster Dojo'));
+      b.appendChild(el('p', 'muted', 'A sandbox for learning. Nothing here counts toward your stats. Undo as often as you like, ask NEUMAI about the board, and watch how traps are built.'));
+      b.appendChild(field('Opponent', id => segControl([['ai', 'NEUMAI'], ['self', 'I move both colors']], prefs.dojoOpp, v => { prefs.dojoOpp = v; }, id)));
+      b.appendChild(field('NEUMAI strength', id => segControl(Object.entries(TIERS).map(([k, t]) => [k, t.label]), prefs.dojoTier, v => { prefs.dojoTier = v; }, id), 'Only affects the moves it plays. Coaching answers always use a full search.'));
+      b.appendChild(field('Who goes first', id => segControl([['me', 'Me', 'p1'], ['ai', 'NEUMAI', 'p1']], prefs.dojoFirst, v => { prefs.dojoFirst = v; }, id), 'Ignored when you move both colors.'));
+      const foot = el('div', 'foot');
+      const cancel = el('button', 'btn', 'Cancel'); cancel.type = 'button'; cancel.onclick = closeSheet;
+      const go = el('button', 'btn primary', 'Enter the Dojo'); go.type = 'button';
+      go.onclick = () => { savePrefs(); closeSheet(); startDojo(); };
+      foot.append(cancel, go); b.appendChild(foot);
+    });
+  }
+  function startDojo() {
+    const self = prefs.dojoOpp === 'self';
+    const me = { name: 'You', kind: 'me', sub: 'Student' };
+    const ai = { name: 'NEUMAI', kind: 'ai', sub: `Sensei · ${TIERS[prefs.dojoTier].label}` };
+    const players = self
+      ? [null, { name: 'First', kind: 'me', sub: 'You · sandbox' }, { name: 'Second', kind: 'me', sub: 'You · sandbox' }]
+      : [null, prefs.dojoFirst === 'me' ? me : ai, prefs.dojoFirst === 'me' ? ai : me];
+    resetGame({ mode: 'dojo', dojoSelf: self, tier: prefs.dojoTier, persona: 'coach', hints: 0, undos: Infinity, players });
+    clearFeed('NEUMAI explains its own moves here.');
+    coachReset();
+    enterGame();
+    coachSay(self
+      ? 'Welcome to the Dojo. You move both colors, so you can test any idea. Ask me about the position, or tap Trap to see the line I expect.'
+      : 'Welcome to the Dojo. Nothing here counts. Ask me anything about the board, undo freely, or tap Trap to watch how I plan ahead.');
+    if (!wide()) toast('Dojo: tap Ask for coaching, Trap for a step-by-step plan.');
+    nextTurn();
+  }
+
+  // names from the point of view of the board
+  const who = p => (G.dojoSelf ? (p === 1 ? 'First' : 'Second') : G.players[p].kind === 'me' ? 'you' : 'NEUMAI');
+  const Who = p => { const w = who(p); return w.charAt(0).toUpperCase() + w.slice(1); };
+  const sv = p => (who(p) === 'you' ? '' : 's');           // plays / play
+  const isAre = p => (who(p) === 'you' ? 'are' : 'is');
+  const whose = p => (who(p) === 'you' ? 'your' : who(p) + "'s");
+  const goodRow = (p, r) => (p === 1 ? r % 2 === 0 : r % 2 === 1); // first player: odd rows 1,3,5
+  const colList = cs => { const a = cs.map(c => c + 1); return a.length < 2 ? String(a[0]) : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; };
+  function threatsOf(board, h, p) {
+    const out = [];
+    for (let c = 0; c < W; c++) for (let r = h[c]; r < H; r++) {
+      if (board[c * H + r] !== 0) continue;
+      const b = board.slice(); b[c * H + r] = p;
+      const line = findWin(b, c, r, p);
+      if (line) out.push({ c, r, p, playable: r === h[c], line });
+    }
+    return out;
+  }
+  const snapshot = () => ({ moves: G.moves.slice(), board: G.board.slice(), h: G.h.slice(), p: turnPiece() });
+
+  // ----- chat panel -----
+  const QUESTIONS = [
+    ['best', "What's my best move?"], ['threats', 'Am I missing a threat?'], ['avoid', 'Where should I not play?'],
+    ['winning', 'Who is winning?'], ['plan', 'What is NEUMAI planning?'], ['trap', 'How do I set a trap?'],
+    ['parity', 'Odd and even rows?'], ['basics', 'Give me a tip']
+  ];
+  function coachReset() {
+    paneCoach.textContent = '';
+    const chips = $('#coach-chips'); chips.textContent = '';
+    QUESTIONS.forEach(([k, q]) => { const b = el('button', '', q); b.type = 'button'; b.onclick = () => ask(q, k); chips.appendChild(b); });
+  }
+  function coachSay(text, whoName = 'NEUMAI', thinking = false) {
+    const d = el('div', 'feed-say' + (thinking ? ' thinking' : ''));
+    d.append(el('small', '', whoName), document.createTextNode(text));
+    paneCoach.appendChild(d); scrollBottom(paneCoach);
+    return d;
+  }
+  $('#coach-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const q = $('#coach-input').value.trim(); if (!q) return;
+    $('#coach-input').value = '';
+    ask(q, intentOf(q));
+  });
+  $('#ask-btn').addEventListener('click', () => { Snd.tap(); openSide('coach'); });
+  function intentOf(q) {
+    const t = q.toLowerCase();
+    if (/odd|even|parity|zugzwang|row/.test(t)) return 'parity';
+    if (/trap|double|set ?up|attack|fork/.test(t)) return 'trap';
+    if (/plan|thinking|expect|going to|next move of|what will/.test(t)) return 'plan';
+    if (/threat|danger|missing|block|lose next|safe\b/.test(t)) return 'threats';
+    if (/avoid|not play|shouldn|bad|worst|mistake/.test(t)) return 'avoid';
+    if (/who|winning|ahead|score|eval|chance|lost|draw/.test(t)) return 'winning';
+    if (/tip|learn|teach|how to play|strategy|advice|improve/.test(t)) return 'basics';
+    if (/best|move|where|play|column|should i/.test(t)) return 'best';
+    return 'unknown';
+  }
+  let asking = false;
+  async function ask(question, intent) {
+    if (G.mode !== 'dojo' || asking) return;
+    Snd.tap();
+    coachSay(question, 'You').classList.add('me');
+    if (G.trap) exitTrap();
+    if (G.over || G.moves.length === 42) { coachSay('This game is over. Tap Undo to step back, or start a new sandbox.'); return; }
+    if (G.thinking) { coachSay('Give me a second, I am choosing my move. Ask again when it is your turn.'); return; }
+    asking = true;
+    const wait = coachSay('Looking at the board…', 'NEUMAI', true);
+    let answer;
+    try { answer = await (COACH[intent] || COACH.unknown)(snapshot()); }
+    catch (e) { answer = 'I could not analyze that position. Try again.'; }
+    asking = false;
+    wait.remove();
+    coachSay(answer);
+    Snd.pop();
+  }
+
+  // ----- analysis helpers -----
+  const scanCache = new Map();
+  async function scanColumns(pos) {
+    const key = pos.moves.join('');
+    if (scanCache.has(key)) return scanCache.get(key);
+    const p = pos.p, o = 3 - p, cols = [];
+    for (let c = 0; c < W; c++) {
+      if (pos.h[c] >= H) { cols.push(null); continue; }
+      const r = pos.h[c], b = pos.board.slice(); b[c * H + r] = p;
+      if (findWin(b, c, r, p)) { cols.push({ c, score: WIN, kind: 'win', why: 'connects four right now' }); continue; }
+      let above = false;
+      if (r + 1 < H) { const b2 = b.slice(); b2[c * H + r + 1] = o; above = !!findWin(b2, c, r + 1, o); }
+      const res = pos.moves.length + 1 >= 42 ? { score: 0 } : await Engine.think([...pos.moves, c], 170);
+      cols.push({ c, score: -res.score, above });
+    }
+    const valid = cols.filter(Boolean);
+    const best = Math.max(...valid.map(x => x.score));
+    valid.forEach(x => {
+      if (x.kind) return;
+      if (x.above) { x.kind = 'lose'; x.why = `lets ${who(o)} win right on top of it`; }
+      else if (x.score > MATE) { x.kind = 'win'; x.why = `forces a win in ${Math.ceil((WIN - x.score + 1) / 2)} moves`; }
+      else if (x.score < -MATE) { x.kind = 'lose'; x.why = `${who(o)} can then force a win`; }
+      else if (best - x.score <= 40) { x.kind = 'good'; x.why = 'one of the strongest moves'; }
+      else if (best - x.score <= 150) { x.kind = 'ok'; x.why = 'playable, but not the strongest'; }
+      else { x.kind = 'risky'; x.why = 'makes the position clearly worse'; }
+    });
+    scanCache.set(key, cols);
+    return cols;
+  }
+  let colMapEl = null;
+  function clearColMap() { if (colMapEl) { colMapEl.remove(); colMapEl = null; } }
+  function showColumnMap(cols) {
+    clearColMap();
+    const LABEL = { win: 'WIN', good: 'GOOD', ok: 'OK', risky: 'RISKY', lose: 'LOSES' };
+    const wrap = el('div', 'colmap'); wrap.setAttribute('aria-hidden', 'true');
+    cols.forEach(x => { const d = el('div', 'cm ' + (x ? x.kind : 'full'), x ? LABEL[x.kind] : '·'); wrap.appendChild(d); });
+    stage.appendChild(wrap); colMapEl = wrap;
+  }
+  function reasonFor(pos, c, info) {
+    const p = pos.p, o = 3 - p, r = pos.h[c];
+    const b = pos.board.slice(); b[c * H + r] = p;
+    if (findWin(b, c, r, p)) return 'It connects four right now.';
+    const reasons = [];
+    if (threatsOf(pos.board, pos.h, o).some(t => t.playable && t.c === c)) reasons.push(`It blocks ${who(o)} from winning in column ${c + 1}.`);
+    const h2 = pos.h.slice(); h2[c]++;
+    const before = threatsOf(pos.board, pos.h, p), after = threatsOf(b, h2, p);
+    const fresh = after.filter(t => !before.some(x => x.c === t.c && x.r === t.r));
+    const now = after.filter(t => t.playable);
+    if (now.length >= 2) reasons.push(`It creates two winning squares at once (columns ${colList(now.map(t => t.c))}). Only one can be blocked.`);
+    else if (fresh.length) {
+      const t = fresh[0];
+      reasons.push(`It builds a new threat at column ${t.c + 1}, row ${t.r + 1}${goodRow(p, t.r) ? `, a strong row for ${who(p)} (ask me about odd and even rows)` : ''}.`);
+    }
+    if (info && info.kind === 'win' && info.score !== WIN) reasons.push(`My search says it ${info.why}.`);
+    if (!reasons.length) reasons.push(c === 3 ? 'The center column is part of the most possible four-in-a-rows, so it is rarely wrong.' : 'It keeps the position safest according to my search.');
+    return reasons.join(' ');
+  }
+  const posWords = s => (s > MATE ? 'a forced win' : s < -MATE ? 'a lost position against perfect play' : s > 150 ? 'a clear advantage' : s > 50 ? 'a small advantage' : s < -150 ? 'a clearly worse position' : s < -50 ? 'a slightly worse position' : 'a balanced position');
+
+  // ----- answers -----
+  const COACH = {
+    async best(pos) {
+      const deep = await Engine.think(pos.moves, 1500);
+      const cols = await scanColumns(pos);
+      const v = cols.filter(Boolean).sort((a, b) => b.score - a.score);
+      const top = cols[deep.move] || v[0];
+      if (top.kind !== 'win' && top.kind !== 'lose') top.kind = 'good';
+      showHint(top.c); showColumnMap(cols);
+      let t = `${Who(pos.p)}r best move is column ${top.c + 1}. ${reasonFor(pos, top.c, top)}`;
+      if (who(pos.p) !== 'you') t = `The best move for ${who(pos.p)} is column ${top.c + 1}. ${reasonFor(pos, top.c, top)}`;
+      const alt = v.find(x => x !== top && x.kind === 'good' && Math.abs(x.score - top.score) < 40);
+      if (alt) t += ` Column ${alt.c + 1} is almost as good.`;
+      t += '\nThe labels above the board rate every column.';
+      return t;
+    },
+    async threats(pos) {
+      const p = pos.p, o = 3 - p, out = [];
+      const mine = threatsOf(pos.board, pos.h, p), theirs = threatsOf(pos.board, pos.h, o);
+      drawThreatOverlay(pos.board, pos.h);
+      const myNow = mine.filter(t => t.playable), oNow = theirs.filter(t => t.playable);
+      const under = [];
+      for (let c = 0; c < W; c++) if (pos.h[c] + 1 < H && theirs.some(t => t.c === c && t.r === pos.h[c] + 1)) under.push(c);
+      if (myNow.length) out.push(`Good news: ${who(p)} can win right now in column ${myNow[0].c + 1}!`);
+      if (oNow.length >= 2) out.push(`Danger: ${who(o)} has two winning squares (columns ${colList(oNow.map(t => t.c))}). Only one can be blocked.`);
+      else if (oNow.length === 1) out.push(`Danger: ${who(o)} wins next move in column ${oNow[0].c + 1} unless it is blocked now.`);
+      if (under.length) out.push(`Do not play column ${colList(under)}: it would let ${who(o)} win on top of that disc.`);
+      const hidden = theirs.filter(t => !t.playable && !under.includes(t.c));
+      if (hidden.length) out.push(`${Who(o)} also has ${hidden.length} hidden threat${hidden.length > 1 ? 's' : ''} higher up (${hidden.slice(0, 3).map(t => `column ${t.c + 1}, row ${t.r + 1}`).join('; ')}). They become dangerous as those columns fill up.`);
+      const myHidden = mine.filter(t => !t.playable);
+      if (myHidden.length) out.push(`${Who(p)} ${who(p) === 'you' ? 'have' : 'has'} ${myHidden.length} hidden threat${myHidden.length > 1 ? 's' : ''} of ${who(p) === 'you' ? 'your' : 'its'} own. Keep them alive.`);
+      if (!out.length) out.push(`No threats right now. Neither side has three in a row with an open fourth square.`);
+      out.push('Dashed lines on the board show every threat; the spinning ring marks the square that would complete it.');
+      return out.join('\n');
+    },
+    async avoid(pos) {
+      const cols = await scanColumns(pos);
+      showColumnMap(cols);
+      const bad = cols.filter(x => x && (x.kind === 'lose' || x.kind === 'risky'));
+      if (!bad.length) return 'Every column is reasonable right now. See the labels above the board for how they compare.';
+      return bad.map(x => `Column ${x.c + 1}: ${x.why}.`).join('\n') + '\nThe labels above the board rate every column.';
+    },
+    async winning(pos) {
+      const res = await Engine.think(pos.moves, 1500);
+      const s = res.score;
+      let t = `${Who(pos.p)} ${who(pos.p) === 'you' ? 'have' : 'has'} ${posWords(s)}.`;
+      if (s > MATE) t += ` With perfect play ${who(pos.p)} wins within ${Math.ceil((WIN - s) / 2)} moves.`;
+      if (s < -MATE) t += ` ${Who(3 - pos.p)} can force a win within ${Math.ceil((WIN + s) / 2)} moves, but only with perfect play. Make it hard!`;
+      if (res.exact && s === 0) t += ' With perfect play from both sides it ends in a draw.';
+      t += ` (I searched ${res.depth} moves deep and checked ${fmtN(res.nodes)} positions.)`;
+      return t;
+    },
+    async plan(pos) {
+      const res = await Engine.think(pos.moves, 1800);
+      const pv = res.pv || [];
+      if (pv.length < 2) return 'There is not much left to plan here.';
+      const b = pos.board.slice(), h = pos.h.slice(); let p = pos.p; const notes = [];
+      pv.slice(0, 10).forEach((c, i) => {
+        const r = h[c]; const before = threatsOf(b, h, p).length;
+        b[c * H + r] = p; h[c]++;
+        const after = threatsOf(b, h, p).length;
+        if (after > before && notes.length < 2) notes.push(`move ${i + 1} (${whose(p)} column ${c + 1}) builds a threat`);
+        p = 3 - p;
+      });
+      let t = `The line I expect: ${pv.slice(0, 10).map(c => c + 1).join(' → ')}.`;
+      if (notes.length) t += ` Watch for ${notes.join(', and ')}.`;
+      t += ' Tap Trap to walk through it step by step on the board.';
+      return t;
+    },
+    async trap(pos) {
+      const p = pos.p, o = 3 - p, ideas = [];
+      for (let c = 0; c < W; c++) {
+        if (pos.h[c] >= H) continue;
+        const r = pos.h[c], b = pos.board.slice(); b[c * H + r] = p; const h2 = pos.h.slice(); h2[c]++;
+        if (r + 1 < H) { const b2 = b.slice(); b2[c * H + r + 1] = o; if (findWin(b2, c, r + 1, o)) continue; }
+        const before = threatsOf(pos.board, pos.h, p), after = threatsOf(b, h2, p);
+        const now = after.filter(t => t.playable).length;
+        const fresh = after.filter(t => !before.some(x => x.c === t.c && x.r === t.r));
+        const strong = fresh.filter(t => goodRow(p, t.r)).length;
+        if (now >= 2 || fresh.length) ideas.push({ c, now, fresh: fresh.length, strong, t: fresh[0] });
+      }
+      ideas.sort((a, b) => b.now - a.now || b.strong - a.strong || b.fresh - a.fresh);
+      const tip = `\nHow traps work: make two threats at once, or build a threat on a row where your opponent will eventually be forced to play underneath it. ${who(p) === 'you' ? 'You are' : Who(p) + ' is'} the ${p === 1 ? 'first' : 'second'} player, so ${p === 1 ? 'odd rows (1, 3, 5)' : 'even rows (2, 4, 6)'} are the strong ones.`;
+      if (!ideas.length) return `No direct trap is available for ${who(p)} this move. Build pieces in the middle columns so future lines can connect.${tip}`;
+      const i = ideas[0];
+      showHint(i.c);
+      if (i.now >= 2) return `Column ${i.c + 1} sets a double threat right now: two winning squares at once.${tip}`;
+      return `Try column ${i.c + 1}: it builds a threat at column ${i.t.c + 1}, row ${i.t.r + 1}${goodRow(p, i.t.r) ? ', which is a strong row for ' + who(p) : ''}.${tip}\nTap Trap to see a full trap from NEUMAI's search.`;
+    },
+    async parity(pos) {
+      const count = p => { const t = threatsOf(pos.board, pos.h, p).filter(x => !x.playable); return { good: t.filter(x => goodRow(p, x.r)).length, all: t.length }; };
+      const a = count(1), b = count(2);
+      drawThreatOverlay(pos.board, pos.h);
+      return [
+        'Rows count from the bottom (1 to 6). Near the end, columns fill up and someone is forced to play under the other player\'s threat.',
+        'Rule of thumb: the first player wants threats on odd rows (1, 3, 5). The second player wants threats on even rows (2, 4, 6). A threat on your "own" row usually wins the endgame.',
+        `Right now: ${Who(1)} has ${a.all} hidden threat${a.all === 1 ? '' : 's'} (${a.good} on odd rows). ${Who(2)} has ${b.all} (${b.good} on even rows).`
+      ].join('\n');
+    },
+    async basics(pos) {
+      const tips = [
+        'Start in the center column. It is part of more four-in-a-rows than any other.',
+        'Before every move, check: can my opponent win next turn? Then: does my move let them win on top of my disc?',
+        'Three in a row is only a threat if the fourth square is still empty. Build lines with room to grow.',
+        'Two threats at once is the classic winning trap. Look for moves that start two lines together.',
+        'Late in the game, count which rows your threats are on. See "Odd and even rows".',
+        'If you are losing, force your opponent to answer threats. Each forced block is a move they cannot use to attack.'
+      ];
+      return pick(tips);
+    },
+    async unknown(pos) {
+      const best = await COACH.best(pos);
+      return `I'm not sure what you mean, so here is the most useful answer.\n${best}\nYou can ask things like "where should I not play?", "who is winning?" or "how do I set a trap?".`;
+    }
+  };
+
+  // ----- threat drawing -----
+  function drawThreatOverlay(board, h) {
+    linesEl.innerHTML = '';
+    let svg = '';
+    for (const p of [1, 2]) {
+      threatsOf(board, h, p).slice(0, 8).forEach(t => {
+        const pts = t.line.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+        const a = pts[0], z = pts[pts.length - 1];
+        const col = p === 1 ? 'var(--p1)' : 'var(--p2)';
+        svg += `<line class="threat-line" x1="${cx(a[0])}" y1="${cy(a[1])}" x2="${cx(z[0])}" y2="${cy(z[1])}" style="stroke:${col}"/>`;
+        svg += `<circle class="threat-ring" cx="${cx(t.c)}" cy="${cy(t.r)}" r="38" style="stroke:${col}"/>`;
+      });
+    }
+    linesEl.innerHTML = svg;
+  }
+
+  // ----- Show Me the Trap: step through NEUMAI's expected line -----
+  let trapEls = [], trapTimer = null;
+  $('#trap-btn').addEventListener('click', startTrap);
+  async function startTrap() {
+    if (G.mode !== 'dojo' || G.over || G.busy || G.thinking || G.trap) return;
+    Snd.tap();
+    const btn = $('#trap-btn'), label = btn.querySelector('.t');
+    G.busy = true; renderActions(); label.textContent = '…';
+    const token = G.token, start = snapshot();
+    const res = await Engine.think(start.moves, 2500);
+    label.textContent = 'Trap'; G.busy = false;
+    if (G.token !== token) return;
+    const pv = (res.pv || []).slice(0, 20);
+    const b = start.board.slice(), h = start.h.slice(); let p = start.p;
+    const steps = [];
+    for (const c of pv) {
+      if (h[c] >= H) break;
+      const o = 3 - p, r = h[c];
+      const oppNow = threatsOf(b, h, o).filter(t => t.playable);
+      const before = threatsOf(b, h, p);
+      b[c * H + r] = p; h[c]++;
+      const win = findWin(b, c, r, p);
+      const after = threatsOf(b, h, p);
+      const fresh = after.filter(t => !before.some(x => x.c === t.c && x.r === t.r));
+      const now = after.filter(t => t.playable);
+      let text;
+      if (win) text = `${Who(p)} play${sv(p)} column ${c + 1} and connect${sv(p)} four. That is the trap closing.`;
+      else if (oppNow.length >= 2) text = `${Who(p)} can only block one of ${whose(o)} two winning squares. Column ${c + 1} blocks one; the other stays open.`;
+      else if (oppNow.some(t => t.c === c)) text = `${Who(p)} ${isAre(p)} forced to block column ${c + 1}.${fresh.length ? ' It also builds a new threat!' : ' No choice here.'}`;
+      else if (now.length >= 2) text = `${Who(p)} play${sv(p)} column ${c + 1}: a double threat (columns ${colList(now.map(t => t.c))}). Only one can be blocked.`;
+      else if (now.length === 1) text = `${Who(p)} play${sv(p)} column ${c + 1} and threaten${sv(p)} to win in column ${now[0].c + 1}. ${Who(o)} must answer.`;
+      else if (fresh.length) text = `${Who(p)} play${sv(p)} column ${c + 1}, building a threat at column ${fresh[0].c + 1}, row ${fresh[0].r + 1}${goodRow(p, fresh[0].r) ? ` (a strong row for ${who(p)})` : ''}.`;
+      else text = `${Who(p)} play${sv(p)} column ${c + 1} to keep control${c === 3 ? ' of the center' : ''}.`;
+      steps.push({ c, r, p, text, board: b.slice(), h: h.slice(), win });
+      if (win) break;
+      p = o;
+    }
+    if (!steps.length) { coachSay('There is no line to show from this position.'); return; }
+    const s = res.score, side = Who(start.p);
+    let intro;
+    if (s > MATE) intro = `${side} ${who(start.p) === 'you' ? 'have' : 'has'} a forced win in ${Math.ceil((WIN - s) / 2)} moves. Step through to see how the trap works.`;
+    else if (s < -MATE) intro = `${Who(3 - start.p)} can force a win here. Step through to see the trap and the best defense.`;
+    else intro = `No forced win yet. This is the line NEUMAI expects (${steps.length} moves, searched ${res.depth} deep). Watch where the threats appear.`;
+    G.trap = { steps, k: 0, intro, start, token: G.token };
+    $('#action-bar').hidden = true; $('#trap-bar').hidden = false;
+    renderActions();
+    trapGo(0);
+    coachSay('Showing the trap on the board. Use the arrows or Auto to step through it.');
+  }
+  function clearTrapEls() { trapEls.forEach(e => e.remove()); trapEls = []; }
+  function trapGo(k) {
+    const T2 = G.trap; if (!T2) return;
+    k = Math.max(0, Math.min(T2.steps.length, k)); T2.k = k;
+    renderPosition(G.moves); clearTrapEls();
+    for (let i = 0; i < k; i++) {
+      const st = T2.steps[i];
+      const d = el('div', 'disc step p' + st.p); posDisc(d, st.c, cy(st.r));
+      d.appendChild(el('span', 'num', String(i + 1)));
+      discsEl.appendChild(d); trapEls.push(d);
+    }
+    const st = k ? T2.steps[k - 1] : null;
+    if (st && st.win) {
+      linesEl.innerHTML = '';
+      const ln = st.win.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+      const a = ln[0], z = ln[ln.length - 1];
+      linesEl.innerHTML = `<line class="winline" x1="${cx(a[0])}" y1="${cy(a[1])}" x2="${cx(z[0])}" y2="${cy(z[1])}"/>`;
+      Snd.win();
+    } else drawThreatOverlay(st ? st.board : T2.start.board, st ? st.h : T2.start.h);
+    $('#trap-cap').textContent = k === 0 ? T2.intro : `Step ${k}: ${st.text}`;
+    $('#trap-step').textContent = `${k} / ${T2.steps.length}`;
+    if (k) Snd.clack(.5, true);
+  }
+  function trapStop() { clearInterval(trapTimer); trapTimer = null; $('#tp-play').textContent = 'Auto'; }
+  function exitTrap() {
+    trapStop(); clearTrapEls();
+    G.trap = null;
+    renderPosition(G.moves); linesEl.innerHTML = '';
+    $('#trap-bar').hidden = true; $('#action-bar').hidden = false;
+    renderActions(); renderPlates();
+  }
+  $('#tp-first').addEventListener('click', () => { trapStop(); trapGo(0); });
+  $('#tp-prev').addEventListener('click', () => { trapStop(); if (G.trap) trapGo(G.trap.k - 1); });
+  $('#tp-next').addEventListener('click', () => { trapStop(); if (G.trap) trapGo(G.trap.k + 1); });
+  $('#tp-exit').addEventListener('click', () => { Snd.tap(); exitTrap(); });
+  $('#tp-play').addEventListener('click', () => {
+    if (!G.trap) return;
+    if (trapTimer) { trapStop(); return; }
+    if (G.trap.k >= G.trap.steps.length) trapGo(0);
+    $('#tp-play').textContent = 'Pause';
+    trapTimer = setInterval(() => {
+      if (!G.trap || G.trap.k >= G.trap.steps.length) { trapStop(); return; }
+      trapGo(G.trap.k + 1);
+    }, 2200);
+  });
 
   // ---------------- online hooks (used by online.js) ----------------
   let chatEnabled = false;
