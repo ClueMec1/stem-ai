@@ -11,13 +11,13 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <!--ARTIFACT-START-->
-<title>Connect Four Gauntlet</title>
+<title>Four in a Row Gauntlet</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;800&family=Nunito+Sans:wght@400;700;800&family=Press+Start+2P&family=VT323&display=swap">
 <style>
 /* ============================================================
-   Connect Four X — styles
+   Four in a Row X — styles
    Skins are chosen with <html data-skin="neon|wood|minimal|arcade">.
    Every skin paints its own full palette (single-look worlds).
    ============================================================ */
@@ -856,7 +856,7 @@ main { min-height: 0; position: relative; }
         <div class="panel glass">
           <div id="lobby-na" hidden style="display:grid;gap:10px">
             <h2 class="display">Online Arena</h2>
-            <p class="muted">Online play works in the installed app. This preview inside Claude blocks internet connections, so here you can play NEUMAI or Pass &amp; Play.</p>
+            <p class="muted">Online play works in the installed app. Offline mode detected — internet connections are blocked, so here you can play NEUMAI or Pass &amp; Play.</p>
           </div>
           <form id="signin" hidden style="display:grid;gap:12px">
             <h2 class="display">Pick a player name</h2>
@@ -1156,7 +1156,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
 
 </script>
 <script>
-/* Connect Four X — main app (game core, NEUMAI, pass & play, review, stats, settings). */
+/* Four in a Row X — main app (game core, NEUMAI, pass & play, review, stats, settings). */
 (() => {
   'use strict';
   const W = 7, H = 6, WIN = 100000, MATE = WIN - 100;
@@ -2985,7 +2985,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && s
 
 </script>
 <script>
-/* Connect Four X — online arena (Firebase): presence, challenges, rooms, spectating, chat. */
+/* Four in a Row X — online arena (Firebase): presence, challenges, rooms, spectating, chat. */
 (() => {
   'use strict';
   const C4 = window.C4;
