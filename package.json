@@ -2,7 +2,7 @@
   "name": "connect4-notifications",
   "private": true,
   "main": "index.js",
-  "engines": { "node": "20" },
+  "engines": { "node": "26.x" },
   "dependencies": {
     "firebase-admin": "^12.1.0",
     "firebase-functions": "^5.0.1"
